@@ -17,7 +17,7 @@
     <PackageReference Include="NVorbis" Version="0.10.5" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\UndyneFight-Ex\UndyneFight-Ex.csproj" />
+    <ProjectReference Include="..\..\UndyneFight-Ex\UndyneFight-Ex\UndyneFight-Ex.csproj" />
   </ItemGroup>
   <Target Name="RestoreDotnetTools" BeforeTargets="Restore">
     <Message Text="Restoring dotnet tools" Importance="High" />
