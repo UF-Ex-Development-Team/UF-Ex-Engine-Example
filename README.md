@@ -6,6 +6,8 @@ Please note that this is still an open beta, meaning that a lot of the codes are
 ## Why was this repository made?
 The 0.2.2 version of the SDK, along with the incomplete 0.2.2 version of Rhythm Recall, is currently [open sourced](https://github.com/Undertale-T-mas/UndyneFight-Ex-RE) and is **discontinued**. This repository is held by one of the original developers (TK), aiming to maintain and optimize the UF-Ex SDK for public use and to further develop Rhythm Recall 0.3.0+.
 
+For only the source code, please go to [this repository](https://github.com/UF-Ex-Development-Team/UF-Ex-Engine).
+
 ## Requirements
 - Microsoft Visual Studio
 - C# 13 (.NET 9)
