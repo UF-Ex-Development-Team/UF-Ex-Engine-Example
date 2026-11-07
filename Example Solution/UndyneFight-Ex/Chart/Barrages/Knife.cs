@@ -56,9 +56,9 @@ public class Knife : Barrage
 		Depth = 0.99f;
 		float alpha = 1 - AppearTime / delay * 2f;
 		if (AppearTime > delay)
-			FormalDraw(Image, Centre, DrawColor * rayAlpha, new Vector2(scale * 0.5f, 2), Rotation - 90, ImageCentre);
+			GeneralDraw(Image, Centre, DrawColor * rayAlpha, new Vector2(scale * 0.5f, 2), Rotation - 90, ImageCentre);
 		else if (alpha > 0)
-			FormalDraw(Sprites.KnifeWarn, Centre, DrawColor * alpha, Rotation - 90, Sprites.KnifeWarn.Bounds.Size.ToVector2() / 2);
+			GeneralDraw(Sprites.KnifeWarn, Centre, DrawColor * 0.5f, Vector2.One, MathUtil.GetRadian(Rotation - 90));
 	}
 	/// <inheritdoc/>
 	public override void GetCollide(Player.Heart player)
@@ -68,7 +68,7 @@ public class Knife : Barrage
 		bool needAP = ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0;
 		float dist = Rotation % 90 is < 0.1f or > 89.9f
 			? Centre.X - player.Centre.X //Compute directly if is parallel
-			: MathUtil.ScalarProject(new(float.Tan(MathUtil.GetRadian(Rotation)), -1), player.Centre - Centre);
+			: new Vector2(MathF.Tan(MathUtil.GetRadian(Rotation)), -1).ScalarProject(player.Centre - Centre);
 
 		float res = Math.Abs(dist) - 2 - 8.5f * scale;
 
@@ -80,7 +80,7 @@ public class Knife : Barrage
 			OkayCollision();
 		else if (res <= 4.2f - offset * 1.2f)
 			NiceCollision();
-		if (score == 3 || !needAP || !MarkScore)
+		if (score == DefaultValues.ScoreType.Perfect || !needAP || !MarkScore)
 			return;
 		goto TakeDamage;
 

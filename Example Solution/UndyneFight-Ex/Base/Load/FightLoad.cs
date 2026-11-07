@@ -1,4 +1,5 @@
 ﻿using UndyneFight_Ex.ChampionShips;
+using UndyneFight_Ex.SongSystem;
 
 namespace UndyneFight_Ex;
 
@@ -15,11 +16,32 @@ public static class FightSystem
 				return;
 		}
 		mainSongs.Clear();
+		Dictionary<string, WaveData> mainList = [];
 		foreach (Type charts in loadItems)
+		{
 			mainSongs.Add(charts);
+			object obj = Activator.CreateInstance(charts);
+			IWaveSet wave = obj is IWaveSet waveSet ? waveSet : ((IChampionShip)obj).GameContent;
+			//Clean up
+			if (obj is IDisposable disposable)
+				disposable.Dispose();
+			if (obj is WaveConstructor wc)
+				wc.Dispose();
+			mainList.Add(wave.FightName, new(wave, obj is IChampionShip champ ? [.. champ.DifficultyPanel.Values] : DefaultWaveDifficulties, false));
+		}
+		AllWaves = mainList.Concat(AllWaves).ToDictionary(k => k.Key, v => v.Value);
+		mainList.Clear();
 		mainSongs.ForEach(MainGameSongs.Push);
 		mainSongs.ForEach(AllSongs.Push);
 	}
+	public static Dictionary<string, WaveData> AllWaves { get; internal set; } = [];
+	public struct WaveData(IWaveSet wave, Difficulty[] difficulties, bool isChamp)
+	{
+		public IWaveSet Wave = wave;
+		public Difficulty[] Difficulties = difficulties;
+		public bool IsChampionShip = isChamp;
+	}
+	private static readonly Difficulty[] DefaultWaveDifficulties = [Difficulty.Noob, Difficulty.Easy, Difficulty.Normal, Difficulty.Hard, Difficulty.Extreme];
 	private static readonly List<Type> mainSongs = [];
 	/// <summary>
 	/// Current song set selected
@@ -66,7 +88,22 @@ public static class FightSystem
 	/// </summary>
 	/// <param name="songSet">The song set to add</param>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static void PushSongSet(SongSet songSet) => ExtraSongSets.Add(songSet);
+	public static void PushSongSet(SongSet songSet)
+	{
+		foreach (var curSongChart in songSet.Values)
+		{
+			AllSongs.Push(curSongChart);
+			object obj = Activator.CreateInstance(curSongChart);
+			IWaveSet wave = obj is IWaveSet waveSet ? waveSet : ((IChampionShip)obj).GameContent;
+			//Clean up
+			if (obj is IDisposable disposable)
+				disposable.Dispose();
+			if (obj is WaveConstructor wc)
+				wc.Dispose();
+			AllWaves.Add(wave.FightName, new(wave, obj is IChampionShip champ ? [.. champ.DifficultyPanel.Values] : DefaultWaveDifficulties, true));
+		}
+		ExtraSongSets.Add(songSet);
+	}
 	/// <summary>
 	/// Removes a song set
 	/// </summary>
@@ -80,9 +117,22 @@ public static class FightSystem
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void PushChampionShip(ChampionShip championShip)
 	{
+		Type[] championships = championShip.Fights.Values;
+		championShip.WaveList = new IWaveSet[championships.Length];
+		for (int i = 0; i < championships.Length; i++)
+		{
+			AllSongs.Push(championships[i]);
+			object obj = Activator.CreateInstance(championships[i]);
+			IWaveSet wave = obj is IWaveSet waveSet ? waveSet : ((IChampionShip)obj).GameContent;
+			//Clean up
+			if (obj is IDisposable disposable)
+				disposable.Dispose();
+			if (obj is WaveConstructor wc)
+				wc.Dispose();
+			championShip.WaveList[i] = wave;
+			AllWaves.Add(wave.FightName, new(wave, obj is IChampionShip champ ? [.. champ.DifficultyPanel.Values] : DefaultWaveDifficulties, true));
+		}
 		ChampionShips.Add(championShip);
-		for (int i = 0; i < championShip.Fights.Values.Length; i++)
-			AllSongs.Push(championShip.Fights.Values.ElementAt(i));
 	}
 	/// <summary>
 	/// Adds a challenge

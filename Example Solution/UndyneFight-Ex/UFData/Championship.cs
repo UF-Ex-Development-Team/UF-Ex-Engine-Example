@@ -77,7 +77,9 @@ public class ChampionshipParticipant(long UUID, string name, DivisionInformation
 		float lim = MathF.Pow(del * 3, 0.7f) / 2.4f + del * 2.0f;
 		return MathF.Max(0, 1 - lim);
 	}
+#if !NET10_0_OR_GREATER
 	private float _total;
+#endif
 	private bool _count;
 
 	[JsonIgnore]
@@ -86,12 +88,20 @@ public class ChampionshipParticipant(long UUID, string name, DivisionInformation
 		get
 		{
 			if (_count)
+#if NET10_0_OR_GREATER
+				return field;
+#else
 				return _total;
+#endif
 			_count = true;
 			float s = 0;
 			for (int i = 0; i < AccuracyList.Length; i++)
 				s += ItemTransfer(AccuracyList[i]);
+#if NET10_0_OR_GREATER
+			return field = s;
+#else
 			return _total = s;
+#endif
 		}
 	}
 

@@ -12,41 +12,6 @@ public static partial class Functions
 	public static class ScreenDrawing
 	{
 		/// <summary>
-		/// A class for creating custom surfaces
-		/// </summary>
-		/// <param name="surf">The surface to draw</param>
-		/// <param name="depth">The depth of the surface</param>
-		/// <param name="blendState">The blend state of the surface (Default <see cref="BlendState.AlphaBlend"/>)</param>
-		public class CustomSurface(Surface surf, float depth, BlendState blendState = null) : RenderProduction(null, SpriteSortMode.Immediate, blendState ?? BlendState.AlphaBlend, depth)
-		{
-			/// <summary>
-			/// The position of the surface
-			/// </summary>
-			public Vector2 Position = Vector2.Zero;
-			/// <summary>
-			/// The blend of the surface
-			/// </summary>
-			public Color Blend = Color.White;
-			/// <summary>
-			/// The surface of the custom surface rendering
-			/// </summary>
-			public Surface Surface = surf;
-			/// <inheritdoc/>
-			public override RenderTarget2D Draw(RenderTarget2D obj)
-			{
-				Surface.DisableExpand = true;
-				MissionTarget = obj;
-				DrawTexture(Surface.RenderPaint, Position, Blend, AdaptingScale);
-				return MissionTarget;
-			}
-			/// <inheritdoc/>
-			public override void Dispose()
-			{
-				base.Dispose();
-				_ = GameStates.CurrentScene.CurrentDrawingSettings.surfaces.Remove(Surface.Name);
-			}
-		}
-		/// <summary>
 		/// A method for creating custom surfaces
 		/// </summary>
 		/// <param name="surf">The surface to draw</param>
@@ -71,13 +36,14 @@ public static partial class Functions
 		/// </summary>
 		public static class UISettings
 		{
+			private static FightScene CurrentFightScene => GameStates.CurrentScene as FightScene;
 			/// <summary>
 			/// Position of the Name display (Default (20, 457))
 			/// </summary>
 			public static Vector2 NameShowerPos
 			{
-				set => (GameStates.CurrentScene as FightScene).NameShow.Centre = value;
-				get => (GameStates.CurrentScene as FightScene).NameShow.Centre;
+				set => CurrentFightScene.NameShow.Centre = value;
+				get => CurrentFightScene.NameShow.Centre;
 			}
 			/// <summary>
 			/// Position of the HP display (Default (320, 443))
@@ -86,12 +52,12 @@ public static partial class Functions
 			{
 				set
 				{
-					HPShower v = (GameStates.CurrentScene as FightScene).HPBar;
+					HPShower v = CurrentFightScene.HPBar;
 					CollideRect r = v.CurrentArea;
 					r.TopLeft = value;
 					v.ResetArea(r);
 				}
-				get => (GameStates.CurrentScene as FightScene).HPBar.CurrentArea.TopLeft;
+				get => CurrentFightScene.HPBar.CurrentArea.TopLeft;
 			}
 			/// <summary>
 			/// The render production for drawing the UI surface
@@ -165,30 +131,31 @@ public static partial class Functions
 		public static class HPBar
 		{
 			private static FightScene CurrentFightScene => GameStates.CurrentScene as FightScene;
+			private static HPShower Bar => CurrentFightScene.HPBar;
 			/// <summary>
 			/// The color of existing HP
 			/// </summary>
-			public static Color HPExistColor { get => CurrentFightScene.HPBar.HPExistColor; set => CurrentFightScene.HPBar.HPExistColor = value; }
+			public static Color HPExistColor { get => Bar.HPExistColor; set => Bar.HPExistColor = value; }
 			/// <summary>
 			/// The color of existing KR
 			/// </summary>
-			public static Color KRExistColor { get => CurrentFightScene.HPBar.HPKRColor; set => CurrentFightScene.HPBar.HPKRColor = value; }
+			public static Color KRExistColor { get => Bar.HPKRColor; set => Bar.HPKRColor = value; }
 			/// <summary>
 			/// THe color of the HP Bar
 			/// </summary>
-			public static Color HPLoseColor { get => CurrentFightScene.HPBar.HPLoseColor; set => CurrentFightScene.HPBar.HPLoseColor = value; }
+			public static Color HPLoseColor { get => Bar.HPLoseColor; set => Bar.HPLoseColor = value; }
 			/// <summary>
 			/// The rectangular area occupied by the HP bar
 			/// </summary>
 			public static CollideRect AreaOccupied
 			{
-				set => CurrentFightScene.HPBar.ResetArea(value);
-				get => CurrentFightScene.HPBar.CurrentArea;
+				set => Bar.ResetArea(value);
+				get => Bar.CurrentArea;
 			}
 			/// <summary>
 			/// Sets whether the HP Bar is displayed vertically
 			/// </summary>
-			public static bool Vertical { set => CurrentFightScene.HPBar.Vertical = value; }
+			public static bool Vertical { set => Bar.Vertical = value; }
 		}
 		/// <summary>
 		/// Camera effect methods
@@ -318,7 +285,7 @@ public static partial class Functions
 						ScreenScale += last;
 						last = 0;
 					}
-				}, time + 1, false);
+				}, time, false);
 			}
 			/// <summary>
 			/// Retracts the screen by the given size and then expands to the original size

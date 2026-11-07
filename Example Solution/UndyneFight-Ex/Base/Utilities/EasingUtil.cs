@@ -278,13 +278,13 @@ public static class SimplifiedEasing
 	public static EaseUnit<float> Linear(float time, float start, float end) => new(start, end, time, (x) => float.Lerp(start, end, x.AppearTime / time));
 	/// <summary>
 	/// Returns a linear easing <br/>
-	/// Note that this will increment <paramref name="end"/> based on the previous easing
+	/// Note that this will increment <paramref name="delta"/> based on the previous easing
 	/// </summary>
 	/// <param name="time">The duration of the linear easing</param>
-	/// <param name="end">The target value of the easing</param>
+	/// <param name="delta">The target value of the easing</param>
 	/// <returns>The result of the easing</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static EaseUnit<float> Linear(float time, float end) => Linear(time, 0, end);
+	public static EaseUnit<float> Linear(float time, float delta) => Linear(time, 0, delta);
 	#endregion
 	#region Vector2 Easing
 	/// <summary>
@@ -307,24 +307,24 @@ public static class SimplifiedEasing
 	public static EaseUnit<Vector2> EaseOut(float time, Vector2 start, Vector2 end, EaseState state) => new(start, end, time, (x) => Vector2.Lerp(start, end, EaseLibrary.GetValue(x.AppearTime / time, state, EaseLibrary.EaseMode.Out)));
 	/// <summary>
 	/// Returns an easing function that starts slow and ends fast <br/>
-	/// Note that this will increment <paramref name="end"/> based on the previous easing
+	/// Note that this will increment <paramref name="delta"/> based on the previous easing
 	/// </summary>
 	/// <param name="time">The duration of the easing</param>
-	/// <param name="end">The target value of the easing</param>
+	/// <param name="delta">The target value of the easing</param>
 	/// <param name="state">The type of easing used for the easing function</param>
 	/// <returns>The result of the easing</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static EaseUnit<Vector2> EaseIn(float time, Vector2 end, EaseState state) => EaseIn(time, Vector2.Zero, end, state);
+	public static EaseUnit<Vector2> EaseIn(float time, Vector2 delta, EaseState state) => EaseIn(time, Vector2.Zero, delta, state);
 	/// <summary>
 	/// Returns an easing function that starts fast and ends slow <br/>
-	/// Note that this will increment <paramref name="end"/> based on the previous easing
+	/// Note that this will increment <paramref name="delta"/> based on the previous easing
 	/// </summary>
 	/// <param name="time">The duration of the easing</param>
-	/// <param name="end">The target value of the easing</param>
+	/// <param name="delta">The target value of the easing</param>
 	/// <param name="state">The type of easing used for the easing function</param>
 	/// <returns>The result of the easing</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static EaseUnit<Vector2> EaseOut(float time, Vector2 end, EaseState state) => EaseOut(time, Vector2.Zero, end, state);
+	public static EaseUnit<Vector2> EaseOut(float time, Vector2 delta, EaseState state) => EaseOut(time, Vector2.Zero, delta, state);
 	/// <summary>
 	/// Returns an easing function that starts slow, increases in speed, then becomes slow again
 	/// </summary>
@@ -396,17 +396,17 @@ public static class SimplifiedEasing
 	/// <param name="state">The type of easing used for the easing function</param>
 	/// <returns>The result of the easing</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static EaseUnit<float> EaseIn(float time, float end, EaseState state) => EaseIn(time, 0, end, state);
+	public static EaseUnit<float> EaseIn(float time, float delta, EaseState state) => EaseIn(time, 0, delta, state);
 	/// <summary>
 	/// Returns an easing function that starts fast and ends slow <br/>
-	/// Note that this will increment <paramref name="end"/> based on the previous easing
+	/// Note that this will increment <paramref name="delta"/> based on the previous easing
 	/// </summary>
 	/// <param name="time">The duration of the easing</param>
-	/// <param name="end">The target value of the easing</param>
+	/// <param name="delta">The target value of the easing</param>
 	/// <param name="state">The type of easing used for the easing function</param>
 	/// <returns>The result of the easing</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static EaseUnit<float> EaseOut(float time, float end, EaseState state) => EaseOut(time, 0, end, state);
+	public static EaseUnit<float> EaseOut(float time, float delta, EaseState state) => EaseOut(time, 0, delta, state);
 	/// <summary>
 	/// Returns an easing function that starts slow, increases in speed, then becomes slow again
 	/// </summary>
@@ -605,19 +605,19 @@ public static class SimplifiedEasing
 	/// <summary>
 	/// Returns a easing of a rotating <see cref="Vector2"/> easing
 	/// </summary>
-	/// <param name="main">The vector easing to rotate</param>
+	/// <param name="vector">The easing of the vector</param>
 	/// <param name="rotate">The easing of the rotation</param>
 	/// <returns>The result of the easing function</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static EaseUnit<Vector2> Polar(EaseUnit<Vector2> main, EaseUnit<float> rotate) => new(Rotate(main.Start, rotate.Start), Rotate(main.End, rotate.End), main.Time, (s) => Rotate(main.Easing(s), rotate.Easing(s)));
+	public static EaseUnit<Vector2> Polar(EaseUnit<Vector2> vector, EaseUnit<float> rotate) => new(vector.Start.RotateDegrees(rotate.Start), vector.End.RotateDegrees(rotate.End), vector.Time, (s) => vector.Easing(s).RotateDegrees(rotate.Easing(s)));
 	/// <summary>
 	/// Returns a easing of a rotating <see cref="float"/> easing
 	/// </summary>
-	/// <param name="main">The float easing to rotate</param>
+	/// <param name="radius">The easing of the radius</param>
 	/// <param name="rotate">The easing of the rotation</param>
 	/// <returns>The result of the easing function</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static EaseUnit<Vector2> Polar(EaseUnit<float> main, EaseUnit<float> rotate) => new(GetVector2(main.Start, rotate.Start), GetVector2(main.End, rotate.End), main.Time, (s) => GetVector2(main.Easing(s), rotate.Easing(s)));
+	public static EaseUnit<Vector2> Polar(EaseUnit<float> radius, EaseUnit<float> rotate) => new(GetVector2(radius.Start, rotate.Start), GetVector2(radius.End, rotate.End), radius.Time, (s) => GetVector2(radius.Easing(s), rotate.Easing(s)));
 	/// <summary>
 	/// Returns a easing of a rotating <see cref="Vector2"/> easing
 	/// </summary>
@@ -625,7 +625,7 @@ public static class SimplifiedEasing
 	/// <param name="rotate">The rotation to set to</param>
 	/// <returns>The result of the easing function</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static EaseUnit<Vector2> Polar(EaseUnit<Vector2> main, float rotate) => new(Rotate(main.Start, rotate), Rotate(main.End, rotate), main.Time, (s) => Rotate(main.Start, rotate));
+	public static EaseUnit<Vector2> Polar(EaseUnit<Vector2> main, float rotate) => new(main.Start.RotateDegrees(rotate), main.End.RotateDegrees(rotate), main.Time, (s) => main.Start.RotateDegrees(rotate));
 	/// <summary>
 	/// Returns the result of two <see cref="float"/> easing functions
 	/// </summary>
@@ -727,6 +727,114 @@ public static class SimplifiedEasing
 	/// <param name="acceleration">The acceleration of the speed</param>
 	/// <returns>The result of the easing</returns>
 	public static EaseUnit<Vector2> Accelerating(float time, Vector2 start, Vector2 speed, Vector2 acceleration) => new(start, start + speed * time + acceleration * 0.5f * time * time, time, (s) => start + speed * s.AppearTime + acceleration * 0.5f * s.AppearTime * s.AppearTime);
+	/**
+		We know that the lerp function is defined as Lerp(a, b, t) = a + (b - a) * t
+		And the recurrence function is a_n = b + (a_0 - b) * (1 - t) ^ n, where a_n is the value of a at the nth frame
+		Let d_n be the distance between the current position and target at the nth frame,
+		i.e. d_0 = |target - start|
+		In other words, d_n = b - a_n = (a_0 - b) * (1 - t) ^ n
+		We get d_n = d_0 * (1 - t) ^ n
+		Since the lerping function does not actually reach the target, we use 0.01 as the margin of error, therefore
+		0.01 = d_n <= d_0 * (1 - t) ^ n
+		0.01 / d_0 <= (1 - t) ^ n
+		log(0.01 / d_0) <= log((1 - t) ^ n)
+		log(0.01 / d_0) <= n * log(1 - t)
+		n <= log(0.01 / d_0) / log(1 - t)
+		n <= (log(0.01) - log(d_0)) / log(1 - t)
+		
+		Converting to code, it would be
+		time = (float.Log(0.01f) - float.Log(float.Abs(target - start)) / float.Log(1 - scale)
+		or
+		time = (float.Log(0.01f) - float.Log((target - start).LengthSquared()) / 2 / float.Log(1 - scale)
+		
+		Since the game runs at 125 fps, you need to multiply the time by 125/60
+	**/
+	/// <summary>
+	/// Lerps a Vector2 from <paramref name="start"/> to <paramref name="target"/> with the lerping constant of <paramref name="scale"/>
+	/// </summary>
+	/// <param name="start">The initial position</param>
+	/// <param name="target">The target position</param>
+	/// <param name="scale">The lerping constant</param>
+	/// <param name="time">The duration to execute the lerp (Manual input may not be accurate, use null for auto computation)</param>
+	/// <returns>The result of the easing</returns>
+	public static EaseUnit<Vector2> LerpTo(Vector2 start, Vector2 target, float scale, float? time = null) => new(start, target, time ?? (float.Log(0.01f) - float.Log((target - start).LengthSquared()) * 0.5f / float.Log(1 - scale)) * 125f / 60, (s) => Vector2.Lerp(start, target, 1 - float.Pow(1 - scale, s.AppearTime)));
+	/// <summary>
+	/// Lerps a float from <paramref name="start"/> to <paramref name="target"/> with the lerping constant of <paramref name="scale"/>
+	/// </summary>
+	/// <param name="start">The initial position</param>
+	/// <param name="target">The target position</param>
+	/// <param name="scale">The lerping constant</param>
+	/// <param name="time">The duration to execute the lerp (Manual input may not be accurate, use null for auto computation)</param>
+	/// <returns>The result of the easing</returns>
+	public static EaseUnit<float> LerpTo(float start, float target, float scale, float? time = null) => new(start, target, time ?? (float.Log(0.01f) - float.Log(float.Abs(target - start)) / float.Log(1 - scale)) * 125f / 60, (s) => float.Lerp(start, target, 1 - float.Pow(1 - scale, s.AppearTime)));
+	/// <summary>
+	/// Lerps a float from <paramref name="start"/> to <paramref name="target"/> with the lerping constant of <paramref name="scale"/>
+	/// </summary>
+	/// <param name="start">The initial position</param>
+	/// <param name="target">The easing of the target position</param>
+	/// <param name="scale">The lerping constant</param>
+	/// <param name="time">The duration to execute the lerp (Manual input may not be accurate, use null for auto computation)</param>
+	/// <returns>The result of the easing</returns>
+	public static EaseUnit<float> LerpTo(float start, EaseUnit<float> target, float scale, float? time = null) => new(start, target.End, time ?? (float.Log(0.0001f) - float.Log(float.Abs(target.End - start)) / float.Log(1 - scale)) * 125f / 60, (s) => float.Lerp(start, target.Easing(s), 1 - float.Pow(1 - scale, s.AppearTime)));
+	/// <summary>
+	/// Lerps a Vector2 from <paramref name="start"/> to <paramref name="target"/> with the lerping constant of <paramref name="scale"/>
+	/// </summary>
+	/// <param name="start">The initial position</param>
+	/// <param name="target">The easing of the target position</param>
+	/// <param name="scale">The lerping constant</param>
+	/// <param name="time">The duration to execute the lerp (Manual input may not be accurate, use null for auto computation)</param>
+	/// <returns>The result of the easing</returns>
+	public static EaseUnit<Vector2> LerpTo(Vector2 start, EaseUnit<Vector2> target, float scale, float? time = null) => new(start, target.End, time ?? (float.Log(0.0001f) - float.Log((target.End - start).LengthSquared()) * 0.5f / float.Log(1 - scale)) * 125f / 60, (s) => Vector2.Lerp(start, target.Easing(s), 1 - float.Pow(1 - scale, s.AppearTime)));
+	/// <summary>
+	/// Superimposes multiple easing functions to the base easing, the duration of the easing will be the easing with the longest duration in <paramref name="eases"/>
+	/// </summary>
+	/// <param name="eases">The list of easings to superimpose</param>
+	/// <returns>The superimposed easing</returns>
+	public static EaseUnit<float> Superimpose(params EaseUnit<float>[] eases)
+	{
+		//Preprocess the starting point and end point
+		float start = 0;
+		float end = 0;
+		float time = eases.MaxBy(e => e.Time).Time;
+		foreach (EaseUnit<float> ease in eases)
+		{
+			start += ease.Start;
+			end += ease.End;
+		}
+		//Execute the superimposed easing
+		return new(start, end, time, (s) =>
+		{
+			float result = 0;
+			foreach (EaseUnit<float> ease in eases)
+				result += ease.Easing(s);
+			return result;
+		});
+	}
+	/// <summary>
+	/// Superimposes multiple easing functions to the base easing, the duration of the easing will be the easing with the longest duration in <paramref name="eases"/>
+	/// </summary>
+	/// <param name="eases">The list of easings to superimpose</param>
+	/// <returns>The superimposed easing</returns>
+	public static EaseUnit<Vector2> Superimpose(params EaseUnit<Vector2>[] eases)
+	{
+		//Preprocess the starting point and end point
+		Vector2 start = Vector2.Zero;
+		Vector2 end = Vector2.Zero;
+		float time = eases.MaxBy(e => e.Time).Time;
+		foreach (EaseUnit<vec2> ease in eases)
+		{
+			start += ease.Start;
+			end += ease.End;
+		}
+		//Execute the superimposed easing
+		return new(start, end, time, (s) =>
+		{
+			Vector2 result = Vector2.Zero;
+			foreach (EaseUnit<vec2> ease in eases)
+				result += ease.Easing(s);
+			return result;
+		});
+	}
 	#endregion
 }
 /// <summary>
@@ -777,47 +885,48 @@ public static class EasingUtil
 	[Obsolete("SimplifiedEasing is better")]
 	public static class CentreEasing
 	{
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		#region Basic Easings
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Stable")]
 		public static Func<ICustomMotion, Vector2> Stable(Vector2 position) => (s) => position;
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Stable")]
 		public static Func<ICustomMotion, Vector2> Stable(float x, float y) => (s) => new(x, y);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Linear")]
 		public static Func<ICustomMotion, Vector2> Linear(Vector2 speed) =>
 			(s) => s.AppearTime * speed;
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Linear")]
 		public static Func<ICustomMotion, Vector2> Linear(float Xspeed) =>
 			(s) => s.AppearTime * new Vector2(Xspeed, 0);
 		public static Func<ICustomMotion, Vector2> FromDown(float distance, float time) =>
 			(s) =>
 			{
-				float cur = Math.Max(0, time - s.AppearTime) / time;
+				float cur = Math.Max(0, 1 - s.AppearTime / time);
 				return new Vector2(0, cur * cur * distance);
 			};
 		public static Func<ICustomMotion, Vector2> FromUp(float distance, float time) =>
 			(s) =>
 			{
-				float cur = Math.Max(0, time - s.AppearTime) / time;
+				float cur = Math.Max(0, 1 - s.AppearTime / time);
 				return new Vector2(0, -cur * cur * distance);
 			};
 		public static Func<ICustomMotion, Vector2> FromRight(float distance, float time) =>
 			(s) =>
 			{
-				float cur = Math.Max(0, time - s.AppearTime) / time;
+				float cur = Math.Max(0, 1 - s.AppearTime / time);
 				return new Vector2(cur * cur * distance, 0);
 			};
 		public static Func<ICustomMotion, Vector2> FromLeft(float distance, float time) =>
 			(s) =>
 			{
-				float cur = Math.Max(0, time - s.AppearTime) / time;
+				float cur = Math.Max(0, 1 - s.AppearTime / time);
 				return new Vector2(-cur * cur * distance, 0);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Polar")]
 		public static Func<ICustomMotion, Vector2> Circle(Vector2 centre, float radius, float roundTime, float startingRotation) => (s) => centre + GetVector2(radius, s.AppearTime / roundTime * 360f + startingRotation);
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static Func<ICustomMotion, Vector2> Convert(Func<float, Vector2> timeParamEase) => (s) => timeParamEase(s.AppearTime);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Polar")]
 		public static Func<ICustomMotion, Vector2> Circle(Func<ICustomMotion, Vector2> easing, float radius, float roundTime, float startingRotation) => (s) => easing(s) + GetVector2(radius, s.AppearTime / roundTime * 360f + startingRotation);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Polar")]
 		public static Func<ICustomMotion, Vector2> Circle(Func<ICustomMotion, Vector2> easing, Func<ICustomMotion, float> radius, float roundTime, float startingRotation) => (s) => easing(s) + GetVector2(radius(s), s.AppearTime / roundTime * 360f + startingRotation);
 
 		/// <summary>
@@ -828,7 +937,7 @@ public static class EasingUtil
 		/// <param name="startPhase">初始位置在第一个半波里面的比例位置。例如写0.5即从第一个半波的一半位置开始。</param>
 		/// <param name="rotation">摆动方向</param>
 		/// <returns></returns>
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.SineWave")]
 		public static Func<ICustomMotion, Vector2> SinWave(float intensity, float cycleTime, float startPhase, float rotation) => (s) => GetVector2(Sin01(s.AppearTime * 2 / cycleTime + startPhase) * intensity, rotation);
 		/// <summary>
 		/// 构建一个上下摆动的正弦波的缓动
@@ -837,7 +946,7 @@ public static class EasingUtil
 		/// <param name="cycleTime">每个波占的时间，即周期</param>
 		/// <param name="startPhase">初始位置在第一个半波里面的比例位置。例如写0.5即从第一个半波的一半位置开始。</param>
 		/// <returns></returns>
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.SineWave with Combine")]
 		public static Func<ICustomMotion, Vector2> XSinWave(float intensity, float cycleTime, float startPhase) => (s) => new(Sin01(s.AppearTime * 2 / cycleTime + startPhase) * intensity, 0);
 		/// <summary>
 		/// 构建一个左右摆动的正弦波的缓动
@@ -846,46 +955,52 @@ public static class EasingUtil
 		/// <param name="cycleTime">每个波占的时间，即周期</param>
 		/// <param name="startPhase">初始位置在第一个半波里面的比例位置。例如写0.5即从第一个半波的一半位置开始。</param>
 		/// <returns></returns>
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.SineWave with Combine")]
 		public static Func<ICustomMotion, Vector2> YSinWave(float intensity, float cycleTime, float startPhase) => (s) => new(0, Sin01(s.AppearTime * 2 / cycleTime + startPhase) * intensity);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Accelerating")]
 		public static Func<ICustomMotion, Vector2> Accelerating(Vector2 speed, Vector2 acceleration) => (s) => speed * s.AppearTime + acceleration * (0.5f * s.AppearTime * s.AppearTime);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Linear")]
 		public static Func<ICustomMotion, Vector2> Linear(Vector2 v1, Vector2 v2, float time) => (s) => Vector2.Lerp(v1, v2, s.AppearTime / time);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInSine(Vector2 v1, Vector2 v2, float time) => (s) => Vector2.Lerp(v1, v2, 1 - MathF.Cos(s.AppearTime / time * MathF.PI / 2));
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutSine(Vector2 v1, Vector2 v2, float time) => (s) => Vector2.Lerp(v1, v2, MathF.Sin(s.AppearTime / time * MathF.PI / 2));
+		[Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInQuad(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, scale * scale);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutQuad(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, 1 - (1 - scale) * (1 - scale));
 			};
+		[Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInCubic(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, scale * scale * scale);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutCubic(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, 1 - (1 - scale) * (1 - scale) * (1 - scale));
 			};
+		[Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInQuart(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, scale * scale * scale * scale);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseInOut")]
 		public static Func<ICustomMotion, Vector2> EaseInOutQuart(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
@@ -894,6 +1009,7 @@ public static class EasingUtil
 				Vector2 V1 = v2 * 0.5f;
 				return scale <= 0.49f ? EaseInQuart(v1, V1, time * 0.5f).Invoke(s) : EaseOutQuart(V1, v2, time * 0.5f).Invoke(s);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseInOut")]
 		public static Func<ICustomMotion, Vector2> EaseInOutQuad(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
@@ -902,48 +1018,56 @@ public static class EasingUtil
 				Vector2 V1 = v2 * 0.5f;
 				return scale <= 0.49f ? EaseInQuad(v1, V1, time * 0.5f).Invoke(s) : EaseOutQuad(V1, v2, time * 0.5f).Invoke(s);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutQuart(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, 1 - (1 - scale) * (1 - scale) * (1 - scale) * (1 - scale));
 			};
+		[Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInQuint(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, scale * scale * scale * scale * scale);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutQuint(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, 1 - (1 - scale) * (1 - scale) * (1 - scale) * (1 - scale) * (1 - scale));
 			};
+		[Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInExpo(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float x = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, x == 0 ? 0 : MathF.Pow(2, 10 * x - 10));
 			};
+		[Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutExpo(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float x = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, x == 1 ? 1 : 1 - MathF.Pow(2, -10 * x));
 			};
+		[Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInCirc(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float x = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, 1 - MathF.Sqrt(1 - x * x));
 			};
+		[Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutCirc(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
 				float x = s.AppearTime / time;
 				return Vector2.Lerp(v1, v2, MathF.Sqrt(1 - (1 - x) * (1 - x)));
 			};
+		[Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInBack(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
@@ -953,6 +1077,7 @@ public static class EasingUtil
 				float value = c3 * x * x * x - c1 * x * x;
 				return Vector2.Lerp(v1, v2, value);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutBack(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
@@ -962,6 +1087,7 @@ public static class EasingUtil
 				float value = 1 + c3 * x * x * x + c1 * x * x;
 				return Vector2.Lerp(v1, v2, value);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInElastic(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
@@ -973,6 +1099,7 @@ public static class EasingUtil
 
 				return Vector2.Lerp(v1, v2, value);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutElastic(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
@@ -983,6 +1110,7 @@ public static class EasingUtil
 				);
 				return Vector2.Lerp(v1, v2, 1 - value);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, Vector2> EaseInBounce(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
@@ -996,6 +1124,7 @@ public static class EasingUtil
 						: x < 2.5 / d1 ? n1 * (float)Math.Pow(x - 2.25f / d1, 2) + 0.9375f : n1 * (float)Math.Pow(x - 2.625f / d1, 2) * x + 0.984375f;
 				return Vector2.Lerp(v1, v2, 1 - value);
 			};
+		[Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, Vector2> EaseOutBounce(Vector2 v1, Vector2 v2, float time) =>
 			(s) =>
 			{
@@ -1010,6 +1139,7 @@ public static class EasingUtil
 						: x < 2.5 / d1 ? n1 * (float)Math.Pow(x - 2.25f / d1, 2) + 0.9375f : n1 * (float)Math.Pow(x - 2.625f / d1, 2) + 0.984375f;
 				return Vector2.Lerp(v1, v2, value);
 			};
+		#endregion
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static Func<ICustomMotion, Vector2> LerpTo(Vector2 start, float scale, Func<ICustomMotion, Vector2> origin)
 		{
@@ -1020,7 +1150,7 @@ public static class EasingUtil
 				return curPos;
 			};
 		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.LerpTo")]
 		public static Func<ICustomMotion, Vector2> LerpTo(Vector2 start, float scale, Vector2 origin)
 		{
 			Vector2 curPos = start;
@@ -1030,6 +1160,7 @@ public static class EasingUtil
 				return curPos;
 			};
 		}
+		[Obsolete("Use SimplifiedEasing.Alternate")]
 		public static Func<ICustomMotion, Vector2> Alternate(float time, params Func<ICustomMotion, Vector2>[] easings)
 		{
 			int curPhase = 0;
@@ -1048,21 +1179,21 @@ public static class EasingUtil
 				return easings[curPhase](s);
 			};
 		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Alternate")]
 		public static Func<ICustomMotion, Vector2> Alternate(params Func<ICustomMotion, Vector2>[] easings) => Alternate(1, easings);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Scale")]
 		public static Func<ICustomMotion, Vector2> Intensify(Func<ICustomMotion, Vector2> easing, Func<ICustomMotion, float> scale) => (s) => easing(s) * scale(s);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Superimpose")]
 		public static Func<ICustomMotion, Vector2> Combine(Func<ICustomMotion, Vector2> ease1, Func<ICustomMotion, Vector2> ease2) => (s) => ease1(s) + ease2(s);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Add")]
 		public static Func<ICustomMotion, Vector2> Combine(Func<ICustomMotion, Vector2> ease1, Vector2 centre) => (s) => ease1(s) + centre;
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Add")]
 		public static Func<ICustomMotion, Vector2> Combine(Vector2 centre, Func<ICustomMotion, Vector2> ease1) => (s) => ease1(s) + centre;
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Combine")]
 		public static Func<ICustomMotion, Vector2> Combine(Func<ICustomMotion, float> xEase, Func<ICustomMotion, float> yEase) => (s) => new(xEase(s), yEase(s));
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static Func<ICustomMotion, Vector2> PolarCombine(Func<ICustomMotion, Vector2> centreEase, Func<ICustomMotion, float> rotationEase) => (s) => Rotate(centreEase(s), rotationEase(s));
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Polar")]
+		public static Func<ICustomMotion, Vector2> PolarCombine(Func<ICustomMotion, Vector2> centreEase, Func<ICustomMotion, float> rotationEase) => (s) => centreEase(s).RotateDegrees(rotationEase(s));
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Polar")]
 		public static Func<ICustomMotion, Vector2> PolarCombine(Func<ICustomMotion, float> lengthEase, Func<ICustomMotion, float> rotationEase) => (s) => GetVector2(lengthEase(s), rotationEase(s));
 
 		public class EaseBuilder
@@ -1078,8 +1209,10 @@ public static class EasingUtil
 				VirtualEasingObject easer = new();
 				AddInstance(easer);
 				easer.PositionRoute = GetResult();
-				AddInstance(new TimeRangedEvent(_totalTime, () => action(easer.CentrePosition)) { UpdateIn120 = true });
-				AddInstance(new InstantEvent(_totalTime, easer.Dispose));
+				//Instant compensation
+				easer.CentrePosition = motionPairs[0].Easing(easer);
+				DelayEventProcessor.AddTimeRangedEvent(0, () => action(easer.CentrePosition), _totalTime, true);
+				DelayEventProcessor.AddInstantEvent(_totalTime, easer.Dispose);
 			}
 			private float _totalTime;
 			public Func<ICustomMotion, Vector2> GetResult()
@@ -1127,14 +1260,13 @@ public static class EasingUtil
 							return s.CentrePosition;
 						while (s.AppearTime >= timeZone[curPhase])
 						{
-							basis = endings[curPhase] + basis - startings[curPhase];
+							basis += endings[curPhase] - startings[curPhase];
 							curPhase++;
 							obj.AppearTime = 0.5f;
 							if (curPhase >= len)
 								return s.CentrePosition;
 						}
-						Vector2 result = pairs[curPhase].Easing(obj) + basis - startings[curPhase] + OffsetPosition;
-						return result;
+						return pairs[curPhase].Easing(obj) + basis - startings[curPhase] + OffsetPosition;
 					});
 			}
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1155,9 +1287,8 @@ public static class EasingUtil
 		#region Functions
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static Func<ICustomMotion, float> Convert(Func<float, float> timeParamEase) => (s) => timeParamEase(s.AppearTime);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Stable")]
 		public static Func<ICustomMotion, float> Stable(float position) => (s) => position;
-
 		/// <summary>
 		/// 构建一个正弦波的缓动
 		/// </summary>
@@ -1165,105 +1296,105 @@ public static class EasingUtil
 		/// <param name="cycleTime">每个波占的时间，即周期</param>
 		/// <param name="startPhase">初始位置在第一个半波里面的比例位置。例如写0.5即从第一个半波的一半位置开始。</param>
 		/// <returns></returns>
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.SineWave")]
 		public static Func<ICustomMotion, float> SinWave(float intensity, float cycleTime, float startPhase) => (s) => Sin((s.AppearTime / cycleTime + startPhase) * 180) * intensity;
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Accelerating")]
 		public static Func<ICustomMotion, float> Accelerating(float speed, float acceleration) => (s) => speed * s.AppearTime + acceleration * (0.5f * s.AppearTime * s.AppearTime);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Linear")]
 		public static Func<ICustomMotion, float> Linear(float v1, float v2, float time) => (s) => float.Lerp(v1, v2, s.AppearTime / time);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Linear")]
 		public static Func<ICustomMotion, float> Linear(float Xspeed) =>
 			(s) => s.AppearTime * Xspeed;
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, float> EaseInSine(float v1, float v2, float time) => (s) => float.Lerp(v1, v2, 1 - MathF.Cos(s.AppearTime / time * MathF.PI / 2));
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutSine(float v1, float v2, float time) =>
 			(s) => float.Lerp(v1, v2, MathF.Sin(s.AppearTime / time * MathF.PI / 2));
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, float> EaseInQuad(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return float.Lerp(v1, v2, scale * scale);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutQuad(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return float.Lerp(v1, v2, 1 - (1 - scale) * (1 - scale));
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, float> EaseInCubic(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return float.Lerp(v1, v2, scale * scale * scale);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutCubic(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return float.Lerp(v1, v2, 1 - (1 - scale) * (1 - scale) * (1 - scale));
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, float> EaseInQuart(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return float.Lerp(v1, v2, scale * scale * scale * scale);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutQuart(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return float.Lerp(v1, v2, 1 - (1 - scale) * (1 - scale) * (1 - scale) * (1 - scale));
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, float> EaseInQuint(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return float.Lerp(v1, v2, scale * scale * scale * scale * scale);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutQuint(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float scale = s.AppearTime / time;
 				return float.Lerp(v1, v2, 1 - (1 - scale) * (1 - scale) * (1 - scale) * (1 - scale) * (1 - scale));
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, float> EaseInExpo(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float x = s.AppearTime / time;
 				return float.Lerp(v1, v2, x == 0 ? 0 : MathF.Pow(2, 10 * x - 10));
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutExpo(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float x = s.AppearTime / time;
 				return float.Lerp(v1, v2, x == 1 ? 1 : 1 - MathF.Pow(2, -10 * x));
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, float> EaseInCirc(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float x = s.AppearTime / time;
 				return float.Lerp(v1, v2, 1 - MathF.Sqrt(1 - x * x));
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutCirc(float v1, float v2, float time) =>
 			(s) =>
 			{
 				float x = s.AppearTime / time;
 				return float.Lerp(v1, v2, MathF.Sqrt(1 - (1 - x) * (1 - x)));
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, float> EaseInBack(float v1, float v2, float time) =>
 			(s) =>
 			{
@@ -1273,7 +1404,7 @@ public static class EasingUtil
 				float value = c3 * x * x * x - c1 * x * x;
 				return float.Lerp(v1, v2, value);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutBack(float v1, float v2, float time) =>
 			(s) =>
 			{
@@ -1283,7 +1414,7 @@ public static class EasingUtil
 				float value = 1 + c3 * x * x * x + c1 * x * x;
 				return float.Lerp(v1, v2, value);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseIn")]
 		public static Func<ICustomMotion, float> EaseInElastic(float v1, float v2, float time) =>
 			(s) =>
 			{
@@ -1294,7 +1425,7 @@ public static class EasingUtil
 				);
 				return float.Lerp(v1, v2, value);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutElastic(float v1, float v2, float time) =>
 			(s) =>
 			{
@@ -1305,7 +1436,7 @@ public static class EasingUtil
 				);
 				return float.Lerp(v1, v2, 1 - value);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.easeIn")]
 		public static Func<ICustomMotion, float> EaseInBounce(float v1, float v2, float time) =>
 			(s) =>
 			{
@@ -1319,7 +1450,7 @@ public static class EasingUtil
 						: x < 2.5 / d1 ? n1 * (float)Math.Pow(x - 2.25f / d1, 2) + 0.9375f : n1 * (float)Math.Pow(x - 2.625f / d1, 2) + 0.984375f;
 				return float.Lerp(v1, v2, 1 - value);
 			};
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.EaseOut")]
 		public static Func<ICustomMotion, float> EaseOutBounce(float v1, float v2, float time) =>
 			(s) =>
 			{
@@ -1335,8 +1466,9 @@ public static class EasingUtil
 			};
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static Func<ICustomMotion, float> LerpTo(float start, float scale, Func<ICustomMotion, float> origin) => (s) => float.Lerp(start, origin(s), scale);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.LerpTo")]
 		public static Func<ICustomMotion, float> LerpTo(float start, float origin, float scale) => (s) => float.Lerp(start, origin, scale);
+		[Obsolete("Use SimplifiedEasing.Alternate")]
 		public static Func<ICustomMotion, float> Alternate(float time, params Func<ICustomMotion, float>[] easings)
 		{
 			int curPhase = 0;
@@ -1355,18 +1487,18 @@ public static class EasingUtil
 				return easings[curPhase](s);
 			};
 		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Alternate")]
 		public static Func<ICustomMotion, float> Alternate(params Func<ICustomMotion, float>[] easings) => Alternate(1, easings);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Superimpose")]
 		public static Func<ICustomMotion, float> Combine(Func<ICustomMotion, float> ease1, Func<ICustomMotion, float> ease2) => (s) => ease1(s) + ease2(s);
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use SimplifiedEasing.Combine")]
 		public static Func<ICustomMotion, float> Combine(Func<ICustomMotion, float> ease1, float basis) => (s) => ease1(s) + basis;
 		#endregion
 		public class EaseBuilder
 		{
 			public float OffsetPosition { get; set; }
 			public bool Adjust { get; set; } = true;
-			private readonly List<Tuple<float, Func<ICustomMotion, float>>> motionPairs = [];
+			private readonly List<(float Time, Func <ICustomMotion, float> Easing)> motionPairs = [];
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			public void Insert(float time, Func<ICustomMotion, float> function) => motionPairs.Add(new(time, function));
 			public static implicit operator Func<ICustomMotion, float>(EaseBuilder val) => val.GetResult();
@@ -1375,27 +1507,28 @@ public static class EasingUtil
 				VirtualEasingObject easer = new();
 				AddInstance(easer);
 				easer.RotationRoute = GetResult();
-				AddInstance(new TimeRangedEvent(_totalTime, () => action(easer.Rotation)) { UpdateIn120 = true });
-				AddInstance(new InstantEvent(_totalTime, easer.Dispose));
+				//Instant compensation
+				easer.Rotation = motionPairs[0].Easing(easer);
+				DelayEventProcessor.AddTimeRangedEvent(0, () => action(easer.Rotation), _totalTime, true);
+				DelayEventProcessor.AddInstantEvent(_totalTime, easer.Dispose);
 			}
 			private float _totalTime;
 			public Func<ICustomMotion, float> GetResult()
 			{
 				VirtualEasingObject obj = new(), objEnd = new();
 
-				Tuple<float, Func<ICustomMotion, float>>[] pairs = [.. motionPairs];
+				(float Time, Func <ICustomMotion, float> Easing)[] pairs = [.. motionPairs];
 				int len = pairs.Length;
 				float[] timeZone = new float[len];
 				float totalTime = 0;
 				float[] startings = new float[len], endings = new float[len];
 				for (int i = 0; i < len; i++)
 				{
-					totalTime += pairs[i].Item1;
+					totalTime += pairs[i].Time;
 					timeZone[i] = totalTime;
-					if (Adjust)
-						startings[i] = pairs[i].Item2(obj);
-					objEnd.AppearTime = pairs[i].Item1;
-					endings[i] = pairs[i].Item2(objEnd);
+					startings[i] = pairs[i].Easing(obj);
+					objEnd.AppearTime = pairs[i].Time;
+					endings[i] = pairs[i].Easing(objEnd);
 				}
 				int curPhase = 0;
 				float basis = 0;
@@ -1415,7 +1548,7 @@ public static class EasingUtil
 							if (curPhase >= len)
 								return s.Rotation;
 						}
-						return pairs[curPhase].Item2(obj) + OffsetPosition;
+						return pairs[curPhase].Easing(obj) + OffsetPosition;
 					})
 					: ((s) =>
 					{
@@ -1429,13 +1562,13 @@ public static class EasingUtil
 							return basis;
 						while (s.AppearTime >= timeZone[curPhase])
 						{
-							basis = endings[curPhase] + basis - startings[curPhase];
+							basis += endings[curPhase] - startings[curPhase];
 							curPhase++;
 							obj.AppearTime = 0.5f;
 							if (curPhase >= len)
 								return basis;
 						}
-						return pairs[curPhase].Item2(obj) + basis - startings[curPhase] + OffsetPosition;
+						return pairs[curPhase].Easing(obj) + basis - startings[curPhase] + OffsetPosition;
 					});
 			}
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]

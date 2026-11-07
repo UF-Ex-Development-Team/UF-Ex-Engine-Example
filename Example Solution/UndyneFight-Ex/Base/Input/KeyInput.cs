@@ -168,21 +168,23 @@ public class IdentityChecker
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	internal void ResetKeyList(List<Keys> checkList) => this.checkList = checkList;
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal bool IsKeyPressed() => !lastPressed && curPressed;
+	internal bool IsKeyPressed() => !lastPressed && (curPressed || syncPressed);
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal bool IsKeyDown() => curPressed;
+	internal bool IsKeyDown() => curPressed || syncPressed;
 	private bool lastPressed = false, curPressed = false;
+	internal bool syncPressed = false;
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	internal void Update(KeyboardState curState)
 	{
-		lastPressed = curPressed;
+		lastPressed = curPressed || syncPressed;
 		curPressed = false;
+		//Check if any of the assigned keys are pressed
 		foreach (Keys key in checkList)
 		{
 			if (curState.IsKeyDown(key))
 			{
 				curPressed = true;
-				break; //Breaks when any of the assigned keys is pressed
+				return; //Breaks when any of the assigned keys is pressed
 			}
 		}
 	}

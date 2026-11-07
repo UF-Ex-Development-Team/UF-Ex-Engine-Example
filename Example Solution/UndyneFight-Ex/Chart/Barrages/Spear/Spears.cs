@@ -267,7 +267,7 @@ public class CircleSpear : Spear
 		base.Update();
 	}
 	/// <inheritdoc/>
-	public override void Draw() => FormalDraw(Image, Centre, DrawingColor * Alpha, GetRadian(Rotation + rotateAngleDisplace), ImageCentre);
+	public override void Draw() => GeneralDraw(Image, Centre, DrawingColor * Alpha, Scales, GetRadian(Rotation + rotateAngleDisplace));
 }
 /// <summary>
 /// A spear with custom motion (Initial alpha is 0, be aware)

@@ -13,7 +13,7 @@ public partial class Player
 			showingColor = heartInstance.CurrentMoveState.StateColor;
 			Image = FightResources.Sprites.brokenHeart;
 		}
-		public override void Draw() => FormalDraw(Image, Centre, showingColor, 0, ImageCentre);
+		public override void Draw() => GeneralDraw(Image, Centre, showingColor);
 
 		private int appearTime = 0;
 		public override void Update()
@@ -34,14 +34,14 @@ public partial class Player
 		private col color;
 		public HeartPiece(vec2 startPos, col color)
 		{
-			Depth = 0.9f;
+			Depth = DefaultValues.DEFAULT_HEART_PIECE_DEPTH;
 			this.color = color;
 			rotateSpeed = MathUtil.GetRandom(-40, 40) / 300f;
 			Centre = startPos;
 			speed = new vec2(MathUtil.GetRandom(-40, 40), MathUtil.GetRandom(-50, 20)) / 8f;
 			Image = FightResources.Sprites.heartPieces[MathUtil.GetRandom(0, 4)];
 		}
-		public override void Draw() => FormalDraw(Image, Centre, color, Rotation, ImageCentre);
+		public override void Draw() => GeneralDraw(Image, Centre, color, vec2.One, Rotation);
 		public override void Update()
 		{
 			if (!screen.Contain(Centre += speed))

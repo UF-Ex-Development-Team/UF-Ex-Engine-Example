@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
-using System.Diagnostics;
 using UndyneFight_Ex.Entities;
 using UndyneFight_Ex.SongSystem;
 using static System.Math;
@@ -39,11 +38,29 @@ public static class AdvanceFunctions
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void AddNiceEvent(Action action) => StateShower.instance.NiceAction += action;
 		/// <summary>
-		/// Adds an event to be executed when a Perfect was gained by the player
+		/// Adds an event to be executed when a Perfect(E/L/P) was gained by the player
 		/// </summary>
 		/// <param name="action">The action to invoke</param>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void AddPerfectEvent(Action action) => StateShower.instance.PerfectAction += action;
+		/// <summary>
+		/// Adds an event to be executed when a Pure Perfect was gained by the player
+		/// </summary>
+		/// <param name="action">The action to invoke</param>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void AddPurePerfectEvent(Action action) => StateShower.instance.PerfectAction += action;
+		/// <summary>
+		/// Adds an event to be executed when an Early Perfect was gained by the player
+		/// </summary>
+		/// <param name="action">The action to invoke</param>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void AddEarlyPerfectEvent(Action action) => StateShower.instance.PerfectEAction += action;
+		/// <summary>
+		/// Adds an event to be executed when a Late Perfect was gained by the player
+		/// </summary>
+		/// <param name="action">The action to invoke</param>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void AddLatePerfectEvent(Action action) => StateShower.instance.PerfectLAction += action;
 		/// <summary>
 		/// Adds an event to be executed when the chart ends
 		/// </summary>
@@ -71,7 +88,7 @@ public static class AdvanceFunctions
 	/// <param name="score">0-> Miss, 1-> Okay, 2-> Nice, 3-> Perfect</param>
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static void PushScore(int score)
+	public static void PushScore(DefaultValues.ScoreType score)
 	{
 		if (StateShower.instance == null)
 		{
@@ -79,21 +96,19 @@ public static class AdvanceFunctions
 				Functions.PlayerInstance.hpControl.GiveKR(1);
 			return;
 		}
-		int actual = score;
+		DefaultValues.ScoreType actual = score;
 		Player.Heart p = null;
 		foreach (Player.Heart v in Player.hearts)
 		{
-			if (v.Shields == null)
-				continue;
-			if (v.Shields.OverRotate)
+			if (v?.Shields.OverRotate ?? false)
 			{
 				p = v;
 				break;
 			}
 		}
-		if (p != null && actual >= 3)
+		if (p != null && actual is DefaultValues.ScoreType.Perfect or DefaultValues.ScoreType.PerfectE or DefaultValues.ScoreType.PerfectL)
 		{
-			actual = 2;
+			actual = DefaultValues.ScoreType.Nice;
 			p.Shields.Consume();
 		}
 		StateShower.instance.PushType(actual);
@@ -570,7 +585,7 @@ public static partial class Functions
 				return colorLastArrow[color] = lastArrow = cur;
 			case 'N':
 			case 'n':
-				int none = wayTag[1] - '0';
+				int none = (wayTag[1] - '0') % 4;
 				cur = Rand(0, 3);
 				while (cur == none)
 					cur = Rand(0, 3);
@@ -833,7 +848,7 @@ public static partial class Functions
 	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("It's a for loop, why would you use this")]
 	public static void Fortimes(int times, Action action)
 	{
-		for (int i = 1; i <= times; i++)
+		for (int i = 0; i < times; i++)
 			action();
 	}
 	/// <summary>
@@ -909,35 +924,13 @@ public static partial class Functions
 	/// </summary>
 	/// <param name="effect">The sfx to play</param>
 	/// <param name="soundVolume">The volume of the sound, range: [0, 1]</param>
-	public static void PlaySound(SoundEffect effect, float soundVolume = 1)
-	{
-		if (effect is null)
-		{
-			Debug.WriteLine("Sound is not loaded");
-			return;
-		}
-		if (soundVolume > 1)
-		{
-			int count = (int)soundVolume;
-			float rem = soundVolume - count;
-			for (int i = 0; i < count; i++)
-				PlaySound(effect, 1f);
-			if (rem > 0)
-				PlaySound(effect, rem);
-			return;
-		}
-		float trueVal = soundVolume * soundVolume;
-		if (effect != FightResources.Sounds.ArrowStuck)
-			trueVal *= Settings.SettingsManager.DataLibrary.SFXVolume / 100f;
-		SoundEffectInstance v = effect.CreateInstance();
-		v.Volume = trueVal;
-		v.Play();
-	}
+	/// <param name="pitch">The pitch of the sound, range: [-1, 1]</param>
+	public static void PlaySound(SoundEffect effect, float soundVolume = 1, float pitch = 0) => AudioUtil.PlaySound(effect, soundVolume, pitch);
 	/// <summary>
 	/// Play multiple sound effects
 	/// </summary>
 	/// <param name="effect"></param>
-	public static void PlaySound(params SoundEffect[] effect) => Array.ForEach(effect, (s) => PlaySound(s));
+	public static void PlaySound(params SoundEffect[] effect) => AudioUtil.PlaySound(effect);
 	/// <summary>
 	/// Creates a black screen
 	/// </summary>
@@ -945,10 +938,9 @@ public static partial class Functions
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void BlackScreen(float time)
 	{
-		PlaySound(FightResources.Sounds.change);
+		AudioUtil.PlaySound(FightResources.Sounds.change);
 		(CurrentScene as FightScene).stopTime += time;
 	}
-
 	/// <summary>
 	/// Kills all barrages on screen (Does not invoke their .Dispose() event)
 	/// </summary>

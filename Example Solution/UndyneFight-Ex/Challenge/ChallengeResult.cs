@@ -112,8 +112,8 @@ internal class ChallengeResult(Challenge challenge) : Entity
 				new VertexPositionColorTexture(new Vector3(Vertices[3], Depth), IllustrationColor, Vertices[3] / ScreenSize));
 
 			DrawOutlinedText(songName, CollidingBox.TopLeft + new Vector2(18, 15.5f), 2, Color.Black, Color.White);
-			string diffStr = Localization.GetText($"Difficulty[{difficulty}]");
-			DrawOutlinedText(diffStr, CollidingBox.TopRight - new Vector2(15 + NormalFont.SFX.MeasureString(difficulty.ToString()).X, -12.5f), 2, Color.Black, difColor);
+			string diffStr = DefaultValues.DifficultyTypes[(int)difficulty].Name;
+			DrawOutlinedText(diffStr, CollidingBox.TopRight - new Vector2(15 + NormalFont.SFX.MeasureString(diffStr).X, -12.5f), 2, Color.Black, difColor);
 			DrawOutlinedText(MathUtil.FloatToString(float.Clamp(result.Accuracy * 100f, 0, 105), 2) + "%", CollidingBox.TopLeft + new Vector2(18, 58), 2, Color.Black, result.Accuracy >= 1 ? Color.Gold : Color.Wheat);
 			if (ChartSpecial == 1)
 				DrawOutlinedText(Localization.GetText("Challenge.NoHit"), CollidingBox.TopLeft + new Vector2(430, 37.5f), 2, Color.Black, Color.Orange, 0.8f);
@@ -147,12 +147,12 @@ internal class ChallengeResult(Challenge challenge) : Entity
 			{
 				_ = enumerator.MoveNext();
 				int FCorAP = 0;
-				if (enumerator.Current.AC)
+				if (enumerator.Current.FC)
 					FCorAP = 1;
 				if (enumerator.Current.AP)
 					FCorAP = 2;
 				AddChild(new SingleResult(enumerator.Current, t, ChartIllustrations[t++], FCorAP));
-				totalAccuracy += float.Clamp(enumerator.Current.Accuracy, 0, 105);
+				totalAccuracy += float.Clamp(enumerator.Current.Accuracy, 0, 1.05f);
 			});
 			IWaveSet cur = Activator.CreateInstance(challenge.Routes[i].Item1) as IWaveSet;
 			ChartIllustrations[i] = GlobalData.GetWavePaint(cur);
@@ -197,7 +197,7 @@ internal class ChallengeResult(Challenge challenge) : Entity
 					font.CentreDraw(Localization.GetText(result) + (plus ? "+" : ""), new Vector2(475, 408) + MathUtil.GetVector2(i * 1.5f, k * 22.5f), Color.Lerp(Color.Black, resultColor, alpha - i * 0.2f), 1.5f * fontScale, 0, 0.5f - i * 0.1f);
 		font.CentreDraw(Localization.GetText(result) + (plus ? "+" : ""), new Vector2(475, 408), Color.Lerp(Color.Black, resultColor, alpha), 1.5f * fontScale, 0, 0.5f);
 		if (appearTime % 60 < 30)
-			Localization.DrawLocalizedText("Challenge.Return", new Vector2(320, 449), [MiscUtil.GetInputKeys(InputIdentity.Confirm)[0]], color: Color.Lime);
+			Localization.DrawLocalizedText("Challenge.Return", new Vector2(320, 449), [MiscUtil.GetInputKeys(InputIdentity.Confirm)[0]], color: Color.Lime, align: Localization.DrawAlign.Middle);
 	}
 	private bool calcFinished = false;
 	private float alpha = 0;

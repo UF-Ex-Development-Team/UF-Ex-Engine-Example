@@ -27,7 +27,7 @@ public class SongData(string name) : ISaveLoad
 		/// <summary>
 		/// Whether the chart was completed in Full Combo
 		/// </summary>
-		public bool AC { get; private set; }
+		public bool FC { get; private set; }
 		/// <summary>
 		/// Whether the chart was completed in All Perfect
 		/// </summary>
@@ -47,12 +47,12 @@ public class SongData(string name) : ISaveLoad
 		/// </summary>
 		/// <param name="result">The current result</param>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void UpdateNew(SongResult result)
+		public void UpdateNew(SongResult result, int prevScore, float prevAcc)
 		{
-			scoreData.PrevScore = Score;
-			scoreData.PrevAcc = Accuracy;
+			scoreData.PrevScore = prevScore;
+			scoreData.PrevAcc = prevAcc;
 			Score = Math.Max(result.Score, Score);
-			AC |= result.AC;
+			FC |= result.FC;
 			AP |= result.AP;
 			Mark = (SkillMark)Math.Min((int)Mark, (int)result.CurrentMark);
 			Accuracy = MathF.Max(Accuracy, result.Accuracy);
@@ -64,9 +64,9 @@ public class SongData(string name) : ISaveLoad
 		public SongState(SaveInfo info)
 		{
 			difficulty = ToDif(info.Title);
-			AC = info["AC"] == "true";
+			FC = info["AC"] == "true";
 			AP = info["AP"] == "true";
-			Accuracy = MathHelper.Clamp(MathUtil.FloatFromString(info[info.keysForIndexes.ContainsKey("Accuracy") ? "Accuracy" : "Acc"]), 0, 1);
+			Accuracy = MathHelper.Clamp(info[info.keysForIndexes.ContainsKey("Accuracy") ? "Accuracy" : "Acc"].ToFloat(), 0, 1);
 			Score = Convert.ToInt32(info["score"]);
 			Mark = ToMark(info["mark"]);
 		}
@@ -79,7 +79,7 @@ public class SongData(string name) : ISaveLoad
 		{
 			difficulty = dif;
 			Score = result.CurrentMark == SkillMark.Failed ? result.Score / 2 : result.Score;
-			AC = result.AC;
+			FC = result.FC;
 			AP = (Mark = result.CurrentMark) == SkillMark.Impeccable;
 		}
 		/// <summary>
@@ -88,7 +88,7 @@ public class SongData(string name) : ISaveLoad
 		/// <returns></returns>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public SaveInfo ToInfo() => new(GetShorthandName(difficulty) + ":score=" + Score +
-				",AC=" + (AC ? "true" : "false") +
+				",AC=" + (FC ? "true" : "false") +
 				",AP=" + (AP ? "true" : "false") +
 				",Acc=" + MathUtil.FloatToString(Accuracy, 5) +
 				",mark=" + GetShorthandName(Mark));
@@ -131,8 +131,8 @@ public class SongData(string name) : ISaveLoad
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void Load(SaveInfo info)
 	{
-		foreach (KeyValuePair<string, SaveInfo> v in info.Nexts)
-			CurrentSongStates.Add(ToDif(v.Key), new SongState(v.Value));
+		foreach ((string name, SaveInfo state) in info.Nexts)
+			CurrentSongStates.Add(ToDif(name), new SongState(state));
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private SaveInfo GetInformation(Difficulty difficulty) => CurrentSongStates[difficulty].ToInfo();
@@ -152,10 +152,10 @@ public class SongData(string name) : ISaveLoad
 	/// <param name="dif"></param>
 	/// <param name="result"></param>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public void UpdateNew(Difficulty dif, SongResult result)
+	public void UpdateNew(Difficulty dif, SongResult result, int prevScore, float prevAcc)
 	{
 		_ = CurrentSongStates.TryAdd(dif, new SongState(dif, result));
-		CurrentSongStates[dif].UpdateNew(result);
+		CurrentSongStates[dif].UpdateNew(result, prevScore, prevAcc);
 	}
 }
 /// <summary>
@@ -176,7 +176,7 @@ public class SongManager : ISaveLoad
 	/// <param name="name">The name of the song</param>
 	/// <returns></returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public SongData Acquire(string name) => songData[name];
+	public SongData? Acquire(string name) => songData.TryGetValue(name, out SongData data) ? data : null;
 	/// <summary>
 	/// Checks whether a chart was played
 	/// </summary>
@@ -185,19 +185,19 @@ public class SongManager : ISaveLoad
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool SongPlayed(string curFight) => songData.ContainsKey(curFight);
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal void FinishedSong(string songName, Difficulty difficulty, SongResult result)
+	internal void FinishedSong(string songName, Difficulty difficulty, SongResult result, int prevScore, float prevAcc)
 	{
 		_ = songData.TryAdd(songName, new SongData(songName));
-		songData[songName].UpdateNew(difficulty, result);
+		songData[songName].UpdateNew(difficulty, result, prevScore, prevAcc);
 	}
 	/// <inheritdoc/>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void Load(SaveInfo info)
 	{
-		foreach (KeyValuePair<string, SaveInfo> v in info.Nexts)
+		foreach ((string name, SaveInfo state) in info.Nexts)
 		{
-			songData.Add(v.Key, new SongData(v.Key));
-			songData[v.Key].Load(v.Value);
+			songData.Add(name, new SongData(name));
+			songData[name].Load(state);
 		}
 	}
 	/// <inheritdoc/>
@@ -222,7 +222,7 @@ public class RatingCalculator(SongManager songManager)
 	public class RatingList
 	{
 		/// <summary>
-		/// Data pf a single song
+		/// Data of a single song
 		/// </summary>
 		/// <param name="name">The name of the song</param>
 		/// <param name="difficulty">The difficulty of the song played</param>
@@ -306,7 +306,7 @@ public class RatingCalculator(SongManager songManager)
 	private readonly SongManager _songManager = songManager;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static Tuple<float, float, float> GetDifficulty(IWaveSet waveSet, Difficulty difficulty)
+	private static (float CompleteDiff, float ComplexDiff, float APDiff) GetDifficulty(IWaveSet waveSet, Difficulty difficulty)
 	{
 		SongInformation Information = waveSet.Attributes;
 
@@ -316,7 +316,7 @@ public class RatingCalculator(SongManager songManager)
 		_ = Information?.ComplexDifficulty.TryGetValue(difficulty, out dif2);
 		_ = Information?.APDifficulty.TryGetValue(difficulty, out dif3);
 
-		return new(dif1, dif2, dif3);
+		return (dif1, dif2, dif3);
 	}
 
 	/// <summary>
@@ -332,16 +332,17 @@ public class RatingCalculator(SongManager songManager)
 
 		float apMax = 0, fcMax = 0, completeMax = 0;
 		SortedSet<float> all = [];
-		Dictionary<string, IWaveSet> songType = GlobalData.WaveCache;
-		foreach (IWaveSet waveSet in songType.Values)
+		Dictionary<string, FightSystem.WaveData> songType = FightSystem.AllWaves;
+		foreach (FightSystem.WaveData waveDat in songType.Values)
 		{
+			IWaveSet waveSet = waveDat.Wave;
 			for (int j = 0; j <= 5; j++)
 			{
-				Tuple<float, float, float> chartDiffs = GetDifficulty(waveSet, (Difficulty)j);
-				completeMax = MathF.Max(completeMax, chartDiffs.Item1);
-				fcMax = MathF.Max(fcMax, chartDiffs.Item3);
-				apMax = MathF.Max(apMax, chartDiffs.Item3);
-				_ = all.Add(chartDiffs.Item2);
+				(float CompleteDiff, float ComplexDiff, float APDiff) = GetDifficulty(waveSet, (Difficulty)j);
+				completeMax = MathF.Max(completeMax, CompleteDiff);
+				fcMax = MathF.Max(fcMax, APDiff);
+				apMax = MathF.Max(apMax, APDiff);
+				_ = all.Add(ComplexDiff);
 			}
 		}
 		for (int i = 0; all.Count < 7; i++)
@@ -361,20 +362,19 @@ public class RatingCalculator(SongManager songManager)
 			SongData song = i;
 			if (!songType.ContainsKey(song.SongName))
 				continue;
-			foreach (KeyValuePair<Difficulty, SongData.SongState> j in song.CurrentSongStates)
+			foreach ((Difficulty dif, SongData.SongState cur) in song.CurrentSongStates)
 			{
-				SongData.SongState cur = j.Value;
-				Tuple<float, float, float> dif = GetDifficulty(songType[song.SongName], j.Key);
+				(float CompleteDiff, float ComplexDiff, float APDiff) = GetDifficulty(songType[song.SongName].Wave, dif);
 
-				_ = best7.Add(new(song.SongName, j.Key, cur.Accuracy, dif.Item2, ReRate(cur.Accuracy), 85 / ideal));
+				_ = best7.Add(new(song.SongName, dif, cur.Accuracy, ComplexDiff, ReRate(cur.Accuracy), 85 / ideal));
 				if (best7.Count >= 8)
 					_ = best7.Remove(best7.Min);
 				if (cur.Mark != SkillMark.Failed)
-					comp1 = SelectLarge(comp1, new(song.SongName, j.Key, cur.Accuracy, dif.Item1, 1.0f, 5 / completeMax));
+					comp1 = SelectLarge(comp1, new(song.SongName, dif, cur.Accuracy, CompleteDiff, 1.0f, 5 / completeMax));
 				if (cur.AP)
-					ap1 = SelectLarge(ap1, new(song.SongName, j.Key, cur.Accuracy, dif.Item3, 1.0f, 5 / apMax));
-				if (cur.AC)
-					fc1 = SelectLarge(fc1, new(song.SongName, j.Key, cur.Accuracy, dif.Item3, 1.0f, 5 / fcMax));
+					ap1 = SelectLarge(ap1, new(song.SongName, dif, cur.Accuracy, APDiff, 1.0f, 5 / apMax));
+				if (cur.FC)
+					fc1 = SelectLarge(fc1, new(song.SongName, dif, cur.Accuracy, APDiff, 1.0f, 5 / fcMax));
 			}
 		}
 		RatingList result = new();
@@ -391,67 +391,49 @@ public class RatingCalculator(SongManager songManager)
 	public Vector2 CalculateRating()
 	{
 		SortedSet<float> best7 = [];
-		float ap1 = 0;
-		float comp1 = 0;
-		float fc1 = 0;
-
-		float apMax = 0, fcMax = 0, completeMax = 0;
+		float ap1 = 0,  comp1 = 0, fc1 = 0,
+			apMax = 0, fcMax = 0, completeMax = 0;
 		List<float> alls = [];
-		Dictionary<string, IWaveSet> songType = GlobalData.WaveCache;
-		foreach (IWaveSet waveSet in songType.Values)
+		Dictionary<string, FightSystem.WaveData> songType = FightSystem.AllWaves;
+		foreach (FightSystem.WaveData waveData in songType.Values)
 		{
-			for (int j = 0; j <= 5; j += 1)
+			IWaveSet waveSet = waveData.Wave;
+			for (int j = 0; j <= 5; j++)
 			{
-				Tuple<float, float, float> v = GetDifficulty(waveSet, (Difficulty)j);
-				completeMax = MathF.Max(completeMax, v.Item1);
-				fcMax = MathF.Max(fcMax, v.Item3);
-				apMax = MathF.Max(apMax, v.Item3);
-				alls.Add(v.Item2);
+				(float CompleteDiff, float ComplexDiff, float APDiff) = GetDifficulty(waveSet, (Difficulty)j);
+				completeMax = MathF.Max(completeMax, CompleteDiff);
+				fcMax = MathF.Max(fcMax, APDiff);
+				apMax = MathF.Max(apMax, APDiff);
+				alls.Add(ComplexDiff);
 			}
 		}
 		foreach (SongData i in _songManager.AllData)
 		{
 			SongData song = i;
-			foreach (KeyValuePair<Difficulty, SongData.SongState> j in song.CurrentSongStates)
+			foreach ((Difficulty curDiff, SongData.SongState curState) in song.CurrentSongStates)
 			{
-				Difficulty curDiff = j.Key;
-				SongData.SongState curState = j.Value;
 				if (!songType.ContainsKey(song.SongName))
 					continue;
-				Tuple<float, float, float> dif = GetDifficulty(songType[song.SongName], curDiff);
+				(float CompleteDiff, float ComplexDiff, float APDiff) = GetDifficulty(songType[song.SongName].Wave, curDiff);
 
-				_ = best7.Add(dif.Item2 * ReRate(curState.Accuracy) + MathUtil.GetRandom(-0.00001f, 0.00001f));
+				_ = best7.Add(ComplexDiff * ReRate(curState.Accuracy) + MathUtil.GetRandom(-0.00001f, 0.00001f));
 				if (curState.Mark != SkillMark.Failed)
-					comp1 = MathF.Max(comp1, dif.Item1);
+					comp1 = MathF.Max(comp1, CompleteDiff);
 				if (curState.AP)
-					ap1 = MathF.Max(ap1, dif.Item3);
-				if (curState.AC)
-					fc1 = MathF.Max(fc1, dif.Item3);
+					ap1 = MathF.Max(ap1, APDiff);
+				if (curState.FC)
+					fc1 = MathF.Max(fc1, APDiff);
 				//Achievement logic
 				if (PlayerManager.CurrentUser == null)
 					continue;
-
-				SongResult res = new(curState.Mark, curState.Score, curState.Accuracy, curState.AC, curState.AP);
-				SongInformation att = songType[song.SongName].Attributes;
-				SongPlayData playData = (att?.ComplexDifficulty.ContainsKey(curDiff) ?? false)
-				? new SongPlayData()
+				SongPlayData playData = new()
 				{
-					Result = res,
+					Result = new(curState.Mark, curState.Score, curState.Accuracy, curState.FC, curState.AP),
 					Name = song.SongName,
 					GameMode = GameMode.None,
-					CompleteThreshold = att.CompleteDifficulty[curDiff],
-					ComplexThreshold = att.ComplexDifficulty[curDiff],
-					APThreshold = att.APDifficulty[curDiff],
-					Difficulty = curDiff
-				}
-				: new SongPlayData()
-				{
-					Result = res,
-					Name = song.SongName,
-					GameMode = GameMode.None,
-					CompleteThreshold = 0,
-					ComplexThreshold = 0,
-					APThreshold = 0,
+					CompleteThreshold = CompleteDiff,
+					ComplexThreshold = ComplexDiff,
+					APThreshold = APDiff,
 					Difficulty = curDiff
 				};
 				Achievements.AchievementManager.CheckSongAchievements(playData);
@@ -470,15 +452,15 @@ public class RatingCalculator(SongManager songManager)
 			ideal += g;
 			sum += f;
 		}
-		float rating0 = sum / ideal * 85f;
-		float rating1 = fc1 / fcMax * 5f;
-		float rating2 = ap1 / apMax * 5f;
-		float rating3 = comp1 / completeMax * 5f;
-		return new(rating0 + rating1 + rating2 + rating3, sum + fc1 + ap1 + comp1);
+		float best7Rating = sum / ideal * 85f;
+		float fcRating = fc1 / fcMax * 5f;
+		float apRating = ap1 / apMax * 5f;
+		float compRating = comp1 / completeMax * 5f;
+		return new(best7Rating + fcRating + apRating + compRating, sum + fc1 + ap1 + comp1);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static float ReRate(float accuracy)
+	internal static float ReRate(float accuracy)
 	{
 		if (accuracy > 1)
 			return 1;

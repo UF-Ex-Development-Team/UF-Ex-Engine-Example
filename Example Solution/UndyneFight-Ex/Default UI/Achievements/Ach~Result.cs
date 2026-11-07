@@ -34,7 +34,7 @@ internal class AchievementResult : Entity
 	public override void Draw()
 	{
 		DrawingLab.DrawRectangle(collidingBox, col.White, 2f, Depth + 0.01f);
-		FormalDraw(FightResources.Sprites.pixUnit, collidingBox.ToRectangle(), col.Black);
+		GeneralDraw(FightResources.Sprites.pixUnit, collidingBox.Centre, col.Black, collidingBox.Size);
 		font.LimitDraw(Localization.GetText("Achievement.Unlock"), collidingBox.TopLeft + new vec2(10, 10), col.White, collidingBox.Size - new vec2(20, 5), 10, 0.4f * fontScale, Depth + 0.02f);
 		font.LimitDraw(achievement.Title, collidingBox.TopLeft + new vec2(10, 25), col.White, new vec2(collidingBox.Width, 20), 10, 0.5f * fontScale, Depth + 0.02f);
 		DrawingLab.DrawLine(collidingBox.TopLeft + new vec2(10, 43), collidingBox.TopRight + new vec2(-10, 43), 1, col.Silver, Depth + 0.02f);

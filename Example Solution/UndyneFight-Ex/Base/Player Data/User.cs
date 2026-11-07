@@ -65,8 +65,8 @@ public partial class User : ISaveLoad
 		info.Nexts.Add("Password", new SaveInfo("Password:" + MathUtil.StringHash(password)));
 		info.Nexts.Add("PlayerName", new SaveInfo("PlayerName:" + name));
 		info.Nexts.Add("UUID", new SaveInfo("UUID:" + uuid));
-		foreach (KeyValuePair<string, string> defSaveInfos in DefaultUserSaveInfo)
-			info.Nexts.Add(defSaveInfos.Key, new SaveInfo(defSaveInfos.Value));
+		foreach ((string key, string curInfo) in DefaultUserSaveInfo)
+			info.Nexts.Add(key, new SaveInfo(curInfo));
 		user.Load(info);
 		return user;
 	}
@@ -77,7 +77,7 @@ public partial class User : ISaveLoad
 	/// </summary>
 	public SongManager SongManager { get; } = new();
 
-	private long _uuid;
+	internal long _uuid;
 	/// <summary>
 	/// Is the player a VIP
 	/// </summary>
@@ -107,10 +107,6 @@ public partial class User : ISaveLoad
 	/// </summary>
 	public Settings Settings { get; private set; }
 	/// <summary>
-	/// The key binds of the player
-	/// </summary>
-	internal KeybindData KeyBinds { get; private set; }
-	/// <summary>
 	/// The player's shop data
 	/// </summary>
 	public ShopData ShopData { get; private set; }
@@ -133,19 +129,21 @@ public partial class User : ISaveLoad
 	/// <summary>
 	/// The latest save data version
 	/// </summary>
-	private const int LatestSaveDataVersion = 1;
+	private const int LatestSaveDataVersion = 2;
 	/// <summary>
 	/// The list of actions to invoke for data compatibility
 	/// </summary>
 	private readonly Dictionary<int, Action<SaveInfo>> SaveDataConvert = new()
 	{
 		//Clear keybind data cache due to faulty save in beta
-		[0] = (info) => info.Nexts.Remove("Keybinds")
+		[0] = (info) => info.Nexts.Remove("Keybinds"),
+		//Clear settings data in account data to switch to global
+		[1] = (info) => info.Nexts.Remove("Settings")
 	};
 	internal AchievementManager _achievement { get; set; }
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal void FinishedSong(string songName, Difficulty difficulty, SongResult result) => SongManager.FinishedSong(songName, difficulty, result);
+	internal void FinishedSong(string songName, Difficulty difficulty, SongResult result, int prevScore, float prevAcc) => SongManager.FinishedSong(songName, difficulty, result, prevScore, prevAcc);
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	internal void IntoVIP() => VIP = true;
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -179,7 +177,6 @@ public partial class User : ISaveLoad
 		}
 		//Get extra information
 		_ = info.Nexts.TryAdd("Achievements", new SaveInfo("Achievements{"));
-		_ = info.Nexts.TryAdd("Settings", new SaveInfo("Settings{"));
 		_ = info.Nexts.TryAdd("Customs", new SaveInfo("Customs{"));
 		_ = info.Nexts.TryAdd("ChallengeData", new SaveInfo("ChallengeData{"));
 		//Compatibility for old save data versions
@@ -189,14 +186,6 @@ public partial class User : ISaveLoad
 		//Get championship data
 		ChampionshipData = new();
 		ChampionshipData.Load(info.Nexts["ChampionShips"]);
-		//Get settings
-		Settings = new();
-		Settings.Load(info.Nexts["Settings"]);
-		//Get keybinds
-		KeyBinds = new();
-		if (!info.Nexts.ContainsKey("Keybinds"))
-			info.PushNext(new KeybindData().Save());
-		KeyBinds.Load(info.Nexts["Keybinds"]);
 		//Get custom fights
 		SaveInfo fightInfo = info.Nexts["NormalFights"];
 		//Get player stats
@@ -207,13 +196,11 @@ public partial class User : ISaveLoad
 		PlayerStatistic.Load(statisticInfo);
 		//Get challenge data
 		ChallengeData = new();
-		ChallengeData.Load(info.Nexts["ChallengeData"]);
 		//Load custom fights
 		if (fightInfo.Nexts != null)
 			SongManager.Load(fightInfo);
-		//Get achievements
+		//Set achievements
 		_achievement = new();
-		_achievement.Load(info.Nexts["Achievements"]);
 		//Get custom data
 		Custom = info.Nexts["Customs"];
 
@@ -228,9 +215,7 @@ public partial class User : ISaveLoad
 		}
 		ShopData = new();
 		if (updated)
-		{
 			ShopData.CashManager.Coins = (int)(AbsoluteSkill * 80);
-		}
 		PlayerManager.userSaveInfo.Add(PlayerName, info);
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -257,18 +242,13 @@ public partial class User : ISaveLoad
 		info.PushNext(new SaveInfo("SaveDataVersion:" + SaveDataVersion));
 		info.PushNext(Custom);
 		info.PushNext(ChampionshipData.Save());
-		info.PushNext(Settings.Save());
 		info.PushNext(PlayerStatistic.Save());
 		info.PushNext(SongManager.Save());
 		info.PushNext(_achievement.Save());
 		info.PushNext(ShopData.Save());
 		info.PushNext(ChallengeData.Save());
-		info.PushNext(KeyBinds.Save());
 		return info;
 	}
-
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal void ApplySettings() => Settings.Apply();
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	internal void SignUpChampionShip(string title, string div) => ChampionshipData.SignUp(title, div);
@@ -308,7 +288,7 @@ public partial class User : ISaveLoad
 	/// <param name="curFight">The name of the song</param>
 	/// <returns></returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public SongData GetSongData(string curFight) => SongManager.Acquire(curFight);
+	public SongData? GetSongData(string curFight) => SongManager.Acquire(curFight);
 	/// <summary>
 	/// Whether the password matches the user's password
 	/// </summary>

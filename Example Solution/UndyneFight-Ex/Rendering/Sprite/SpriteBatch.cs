@@ -349,7 +349,7 @@ public partial class SpriteBatchEX
 		{
 			if (item is >= 'a' and <= 'z')
 			{
-				SpriteFont.Glyph curGlyph = font.SFX.Glyphs[font.GetGlyphIndexOrDefault(item)];
+				SpriteFont.Glyph curGlyph = font.SFX.Glyphs[font.GetGlyphIndex(item)];
 				minHeight = MathF.Min(minHeight, curGlyph.BoundsInTexture.Height);
 			}
 		}
@@ -432,13 +432,12 @@ public partial class SpriteBatchEX
 				if (prevChar != null)
 					switch (prevChar)
 					{
-						case '(':
 						case '\'':
 							zero2.X -= 5 * scale.X;
 							break;
 					}
 
-				SpriteFont.Glyph* ptr2 = ptr + font.GetGlyphIndexOrDefault(c);
+				SpriteFont.Glyph* ptr2 = ptr + font.GetGlyphIndex(c);
 				if (newLine)
 				{
 					zero2.X = Math.Max(ptr2->LeftSideBearing, 0f);
@@ -462,6 +461,8 @@ public partial class SpriteBatchEX
 					position2.Y += (ptr2->BoundsInTexture.Height - MinFontHeight[font]) * 0.5f;
 				else if (c is ',') //Move downwards
 					position2.Y -= (ptr2->BoundsInTexture.Height - MinFontHeight[font]) * 0.5f;
+				else if (c is '^') //Move upwards
+					position2.Y += ptr2->BoundsInTexture.Height - MinFontHeight[font];
 
 				Vector2.Transform(ref position2, ref matrix, out position2);
 

@@ -40,7 +40,7 @@ public class Spider : CircleCollisionBarrage
 	protected internal Spider() : base(5)
 	{
 		Image = Sprites.spider;
-		Depth = 0.5f;
+		Depth = DefaultValues.DEFAULT_SPIDER_DEPTH;
 		Alpha = 1.0f;
 		UpdateIn120 = true;
 		Hidden = true;

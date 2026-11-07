@@ -98,6 +98,7 @@ public class Platform : Entity, ICustomMotion, ICustomLength
 		gravityLine.SetWidth(4);
 		gravityLine.sticky = platformType == 0;
 		UpdateIn120 = true;
+		Depth = DefaultValues.DEFAULT_PLATFORM_DEPTH;
 	}
 
 	/// <inheritdoc/>
@@ -105,10 +106,9 @@ public class Platform : Entity, ICustomMotion, ICustomLength
 	{
 		Vector2 delta = GetVector2(length / 2, Rotation);
 		Texture2D side = platformSide[platformType];
-		GameMain.MissionSpriteBatch.Draw(Image, Centre, new Rectangle(0, 0, (int)length, 12), Color.White, GetRadian(Rotation), new Vector2(length / 2, 6), 1.0f, SpriteEffects.None, 0.35f);
-		Depth = 0.35F;
-		FormalDraw(side, Centre - delta, Color.White, GetRadian(Rotation), new Vector2(0, 6));
-		FormalDraw(side, Centre + delta, Color.White, GetRadian(Rotation), new Vector2(0, 6));
+		GameMain.MissionSpriteBatch.Draw(Image, Centre, new Rectangle(0, 0, (int)length, 12), Color.White, GetRadian(Rotation), new Vector2(length / 2, 6), 1.0f, SpriteEffects.None, Depth);
+		GeneralDraw(side, Centre - delta, rotation: GetRadian(Rotation), spriteOrigin: new Vector2(0, 6));
+		GeneralDraw(side, Centre + delta, rotation: GetRadian(Rotation), spriteOrigin: new Vector2(0, 6));
 	}
 
 	private readonly GravityLine gravityLine;
@@ -171,6 +171,7 @@ public class Platform : Entity, ICustomMotion, ICustomLength
 			following = p;
 			this.length = length;
 			Image = platform[this.platformType = platformType];
+			Depth = DefaultValues.DEFAULT_PLATFORM_DEPTH;
 		}
 		public override void Draw()
 		{
@@ -178,10 +179,9 @@ public class Platform : Entity, ICustomMotion, ICustomLength
 				return;
 			Vector2 delta = GetVector2(length / 2, Rotation) * size;
 			Texture2D side = platformSide[platformType];
-			GameMain.MissionSpriteBatch.Draw(Image, Centre, new Rectangle(0, 0, (int)length, 12), Color.White * alpha, GetRadian(Rotation), new Vector2(length / 2, 6), size, SpriteEffects.None, 0.35f);
-			Depth = 0.35F;
-			FormalDraw(side, Centre - delta, Color.White * alpha, GetRadian(Rotation), new Vector2(0, 6));
-			FormalDraw(side, Centre + delta, Color.White * alpha, GetRadian(Rotation), new Vector2(0, 6));
+			GameMain.MissionSpriteBatch.Draw(Image, Centre, new Rectangle(0, 0, (int)length, 12), Color.White * alpha, GetRadian(Rotation), new Vector2(length / 2, 6), size, SpriteEffects.None, Depth);
+			GeneralDraw(side, Centre - delta, Color.White * alpha, Vector2.One, GetRadian(Rotation), new Vector2(0, 6));
+			GeneralDraw(side, Centre + delta, Color.White * alpha, Vector2.One, GetRadian(Rotation), new Vector2(0, 6));
 		}
 
 		public override void Update()

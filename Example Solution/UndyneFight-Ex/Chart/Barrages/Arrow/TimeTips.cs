@@ -24,6 +24,6 @@ public partial class Arrow
 			if (alpha <= 0)
 				Dispose();
 		}
-		public override void Draw() => GlobalResources.Font.NormalFont.CentreDraw(text, pos, color * (alpha * Fight.Functions.ScreenDrawing.UIColor.A / 255f), 0.5f, 0.5f);
+		public override void Draw() => GlobalResources.Font.NormalFont.CentreDraw(text, pos, color * (alpha * Fight.Functions.ScreenDrawing.UIColor.A / 255f), 0.5f, DefaultValues.DEFAULT_TIME_TIPS_DEPTH);
 	}
 }

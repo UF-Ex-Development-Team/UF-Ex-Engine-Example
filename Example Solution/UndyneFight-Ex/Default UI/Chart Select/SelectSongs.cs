@@ -466,9 +466,9 @@ internal class SongSelector : Selector
 
 			Texture2D songImage = null;
 
-			if (!Exists(Path.Combine($"{AppContext.BaseDirectory}{filePath}\\song.xnb".Split('\\'))))
+			if (!Exists(GlobalData.GetTruePath($"{AppContext.BaseDirectory}{filePath}\\song.xnb")))
 			{
-				if (!Exists(Path.Combine($"{AppContext.BaseDirectory}{filePath}.xnb".Split('\\'))))
+				if (!Exists(GlobalData.GetTruePath($"{AppContext.BaseDirectory}{filePath}.xnb")))
 				{
 					available = false;
 					name = $"({name})";
@@ -721,11 +721,11 @@ internal class DifficultySelector : Selector
 			HashSet<Difficulty> unlocked = null;
 			if (this.wave.Attributes != null)
 				unlocked = this.wave.Attributes.UnlockedDifficulties;
-			foreach (KeyValuePair<string, Difficulty> v in current.DifficultyPanel)
+			foreach ((string name, Difficulty dif) in current.DifficultyPanel)
 			{
-				if (unlocked != null && !unlocked.Contains(v.Value))
+				if (unlocked != null && !unlocked.Contains(dif))
 					continue;
-				PushSelection(new DivisionInformation(v.Key, height, (int)v.Value));
+				PushSelection(new DivisionInformation(name, height, (int)dif));
 				height += 40;
 			}
 			divNames = [.. current.DifficultyPanel.Keys];
@@ -871,7 +871,7 @@ internal class DifficultySelector : Selector
 
 		if (_songIllustration != null)
 		{
-			FormalDraw(_songIllustration, new(320, 240), Color.White * 0.3f, new Vector2(640 / _songIllustration.Width, 480 / _songIllustration.Height), 0, new(320, 240));
+			GeneralDraw(_songIllustration, new(320, 240), Color.White * 0.3f, new Vector2(640 / _songIllustration.Width, 480 / _songIllustration.Height), 0, new(320, 240));
 		}
 		base.Draw();
 	}
@@ -972,7 +972,7 @@ internal class DifficultySelector : Selector
 			}
 			GlobalResources.Font.NormalFont.CentreDraw("All Perfect", new Vector2(320, TextY), Color.Gold * alpha, 1.0f, Angle, 0.1f);
 		}
-		else if (info.AC)
+		else if (info.FC)
 		{
 			GlobalResources.Font.NormalFont.CentreDraw(
 				"No Hit",

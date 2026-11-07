@@ -29,35 +29,6 @@ internal partial class StateShower
 			}
 			private readonly float oldRating, curRating;
 			private readonly RatingShowing ratingShowing;
-
-			private class LineDrawer(RatingShowing ratingShowing) : Entity
-			{
-				private readonly RatingShowing rshow = ratingShowing;
-				private int appearTime = 0;
-
-				public override void Draw()
-				{
-					float alpha = Min(1.0f, appearTime / 60f);
-					Color color = Color.White * alpha;
-
-					float height = 30;
-
-					DrawingLab.DrawLine(
-						new(0, rshow.CollidingBox.TopLeft.Y - 5), new Vector2(0, 20) + rshow.CollidingBox.TopLeft,
-						3.5f, color, 0.5f);
-					DrawingLab.DrawLine(
-						new(0, rshow.CollidingBox.TopLeft.Y - 5 + height), new Vector2(0, 20 + height) + rshow.CollidingBox.TopLeft,
-						3.5f, color, 0.5f);
-					DrawingLab.DrawLine(
-						new(640, rshow.CollidingBox.TopRight.Y - 5), new Vector2(0, 20) + rshow.CollidingBox.TopRight,
-						3.5f, color, 0.5f);
-					DrawingLab.DrawLine(
-						new(640, rshow.CollidingBox.TopRight.Y - 5 + height), new Vector2(0, 20 + height) + rshow.CollidingBox.TopRight,
-						3.5f, color, 0.5f);
-				}
-
-				public override void Update() => appearTime++;
-			}
 			public void IntoCentre()
 			{
 				DelayEventProcessor.AddTimeRangedEvent(0, () =>

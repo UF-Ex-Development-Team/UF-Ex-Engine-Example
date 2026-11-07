@@ -5,12 +5,6 @@ namespace UndyneFight_Ex.ChampionShips;
 internal class LicenseMaker
 {
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static float ReRate(float accuracy)
-	{
-		float del = 1 - accuracy;
-		return accuracy > 1 ? 1 : MathF.Max(0, 1 - MathF.Pow(del * 3, 0.7f) / 2.4f + del * 2);
-	}
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void GetScore(ChampionShip championShip)
 	{
 		StreamWriter writer = new("Content\\result.txt");
@@ -44,12 +38,12 @@ internal class LicenseMaker
 				maxScores[div][i] = MathF.Max(maxScores[div][i], v);
 			}
 		}
-		foreach (KeyValuePair<string, float[]> pair in maxScores)
+		foreach ((string div, float[] score) in maxScores)
 		{
-			string str = $"(div.{pair.Key})";
+			string str = $"(div.{div})";
 			for (int i = 0; i < songs.Length; i++)
-				str += $" {pair.Value[i]}";
-			values.Add(new(Convert.ToInt32(pair.Key), -4000), $"full mark: {str}");
+				str += $" {score[i]}";
+			values.Add(new(Convert.ToInt32(div), -4000), $"full mark: {str}");
 		}
 		foreach (SaveInfo s in players.Values)
 		{
@@ -68,7 +62,7 @@ internal class LicenseMaker
 					continue;
 				cur = GetResult(t, songs[i].GameContent.FightName, (int)songs[i].DifficultyPanel[$"div.{div}"]);
 				cur /= maxScores[div][i];
-				float reCur = ReRate(cur);
+				float reCur = UserService.RatingCalculator.ReRate(cur);
 				res += $" {curID}:{MathUtil.FloatToString(reCur, 3)}({MathUtil.FloatToString(cur, 3)})".PadRight(21);
 				curID++;
 				sum += reCur;
@@ -105,9 +99,9 @@ internal class LicenseMaker
 	public static void MakeLicense()
 	{
 		string res = "Licenses";
-		string[] files = Directory.GetFiles(res + "\\Input");
+		string[] files = Directory.GetFiles(GlobalData.GetTruePath(res + "\\Input"));
 		string newpos;
-		_ = Directory.CreateDirectory(newpos = res + "\\Result");
+		_ = Directory.CreateDirectory(newpos = GlobalData.GetTruePath(res + "\\Input"));
 		foreach (string v in files)
 		{
 			string resName = v.Split('\\')[^1].Split('.')[0];

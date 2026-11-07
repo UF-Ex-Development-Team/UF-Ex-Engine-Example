@@ -18,18 +18,17 @@ public partial class AchievementManager : ISaveLoad
 	public void Load(SaveInfo info)
 	{
 		AchievementObjects.Clear();
+		Dictionary<string, Achievement> achList = Achievements.AchievementManager.achievements;
 		foreach (string key in info.Nexts.Keys)
 		{
-			if (!Achievements.AchievementManager.achievements.TryGetValue(key, out Achievement value))
+			if (!achList.TryGetValue(key, out Achievement value))
 				continue;
 			Insert(value);
 			AchievementObjects[key].Load(info.Nexts[key]);
 		}
-		foreach (KeyValuePair<string, Achievement> achieve in Achievements.AchievementManager.achievements)
-		{
-			if (!AchievementObjects.ContainsKey(achieve.Key))
-				Insert(achieve.Value);
-		}
+		foreach ((string name, Achievement ach) in achList)
+			if (!AchievementObjects.ContainsKey(name))
+				Insert(ach);
 	}
 	/// <summary>
 	/// Adds a new achievement
@@ -43,7 +42,6 @@ public partial class AchievementManager : ISaveLoad
 		AchievementObject obj = new(achievement);
 		_ = AchievementObjects.TryAdd(achievement.Title, obj);
 	}
-
 	/// <inheritdoc/>
 	public SaveInfo Save()
 	{

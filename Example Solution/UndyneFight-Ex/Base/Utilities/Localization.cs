@@ -1,5 +1,4 @@
 ﻿using Newtonsoft.Json.Linq;
-using System.Diagnostics;
 
 namespace UndyneFight_Ex;
 
@@ -12,21 +11,46 @@ public static class Localization
 	/// Whether to enable hot-reloading of localization files
 	/// </summary>
 	public static bool EnableHotReload { get; set; } = false;
+#if NET10_0_OR_GREATER
 	/// <summary>
 	/// Gets the current language, can be used as key
 	/// </summary>
 	public static string CurrentLanguage
 	{
-		get => currentLanguage;
+		get;
 		set
 		{
 			if (_TranslationData.ContainsKey(value))
-				currentLanguage = value;
+			{
+				field = value;
+				DefaultValues.RegenerateDynamicValues();
+				DebugState.Log($"Language changed to {value}.");
+			}
 			else
-				Debug.WriteLine($"Language {value} not found, keeping current language {currentLanguage}.");
+				DebugState.Log($"Language {value} not found, keeping current language {field}.");
+		}
+	} = "English";
+#else
+	/// <summary>
+	/// Gets the current language, can be used as key
+	/// </summary>
+	public static string CurrentLanguage
+	{
+		get => _currentLanguage;
+		set
+		{
+			if (_TranslationData.ContainsKey(value))
+			{
+				_currentLanguage = value;
+				DefaultValues.RegenerateDynamicValues();
+				DebugState.Log($"Language changed to {value}.");
+			}
+			else
+				DebugState.Log($"Language {value} not found, keeping current language {_currentLanguage}.");
 		}
 	}
-	private static string currentLanguage = "English";
+	private static string _currentLanguage = "English";
+#endif
 	/// <summary>
 	/// The common translation data
 	/// </summary>
@@ -58,7 +82,7 @@ public static class Localization
 	/// <summary>
 	/// The directory for the localization files
 	/// </summary>
-	private static readonly string _localizationDirectory = $"{GameStates.SavePath}\\Localization";
+	private static readonly string _localizationDirectory = GlobalData.GetTruePath($"{GameStates.SavePath}\\Localization");
 	/// <summary>
 	/// Initializes the font and string data
 	/// </summary>
@@ -77,7 +101,7 @@ public static class Localization
 			if (defaultJson != currentJson)
 				File.Copy(Path.Combine("Content", "DefaultEnglish.json"), Path.Combine(_localizationDirectory, "English.json"), true);
 			else
-				Debug.WriteLine("Current English localization file is up to date.");
+				DebugState.Log("Current English localization file is up to date.");
 		}
 		//Load localization data
 		foreach (string file in Directory.GetFiles(_localizationDirectory, "*.json"))
@@ -88,14 +112,14 @@ public static class Localization
 			//Store the font for the language
 			foreach (string FontKey in DefaultLocalizedFonts.Keys)
 			{
-				string fontPath = _localizationDirectory + "\\" + data._translations["Fonts"][FontKey]["Path"].ToString();
+				string fontPath = GlobalData.GetTruePath(_localizationDirectory + "\\" + data._translations["Fonts"][FontKey]["Path"].ToString());
 				//Load font file if exists
 				if (File.Exists(fontPath))
 					data.FontData[FontKey] = (new GLFont(fontPath, GameMain.instance.Content), data._translations["Fonts"][FontKey]["Scale"].Value<float>());
 				else //Check if it's a built-in font
 				{
 					//If the font specified is a built-in font
-					switch (fontPath)
+					switch (FontKey)
 					{
 						case "NormalFont":
 							data.FontData[FontKey] = (FightResources.Font.NormalFont, data._translations["Fonts"][FontKey]["Scale"].Value<float>());
@@ -110,7 +134,7 @@ public static class Localization
 							data.FontData[FontKey] = (FightResources.Font.FightFont, data._translations["Fonts"][FontKey]["Scale"].Value<float>());
 							break;
 						default:
-							Debug.WriteLine($"Font {fontPath} for language {lang} not recognized, using default font.");
+							DebugState.Log($"Font {fontPath} for language {lang} not recognized, using default font.");
 							data.FontData[FontKey] = (FightResources.Font.NormalFont, data._translations["Fonts"][FontKey]["Scale"].Value<float>());
 							break;
 					}
@@ -119,6 +143,7 @@ public static class Localization
 			}
 			_TranslationData.Add(lang, data);
 		}
+		DefaultValues.RegenerateDynamicValues();
 	}
 	/// <summary>
 	/// Logic for hot reloading
@@ -145,7 +170,7 @@ public static class Localization
 		//Deleted files
 		foreach (string item in _FileData.Keys)
 		{
-			if (!File.Exists(Path.Combine(item.Split('\\'))))
+			if (!File.Exists(GlobalData.GetTruePath(item)))
 			{
 				_ = _FileData.Remove(item);
 				return (item, true);
@@ -185,7 +210,7 @@ public static class Localization
 	/// </summary>
 	/// <param name="key">The sub-font to get</param>
 	/// <returns>The font you are trying to get</returns>
-	public static GLFont GetFont(string key) => _TranslationData.TryGetValue(CurrentLanguage, out TranslationData fonts) && fonts.FontData.TryGetValue(key, out (GLFont Font, float Scale) font) ? font.Font : DefaultLocalizedFonts[key];
+	public static GLFont GetFont(string key) => _TranslationData[CurrentLanguage].FontData[key].Font;
 	/// <summary>
 	/// Gets the scale of the localized font
 	/// </summary>

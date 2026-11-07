@@ -96,8 +96,8 @@
     "SplashScreen": {
         "First": ["This is an", "UNDERTALE", "fangame"],
         "Second": ["This game is made possible by", "Monogame and UF-Ex"],
-        "Boot": "Botting up game...",
-        "AudioPreview": "Loading audio previews: {0}/{1}",
+        "Boot": "Booting up game...",
+        "AudioPreview": "Loading audio previews",
         "Loading": "Loading {0}",
         "LoadState": {
             "Title_Sprite": "title sprites",
@@ -134,35 +134,26 @@
     },
 
     "ResultScreen": {
-        "Options": ["Play\nsummary", "Graph\nanalyze", "Resources\ngained"],
         "YourScore": "Your Score:",
         "NewRecord": "New Record!",
         "BestScore": "Best Score: {0}",
         "NoHit": "NO HIT",
-        "Miss": "Miss",
-        "Okay": "Okay",
-        "Nice": "Nice",
-        "Perfect": "Perfect",
         "EarlyLate": "Early: {0} Late: {1}",
         "EarlyLateShort": "(E: {0} L: {1})",
         "MaxCombo": "Max Combo: {0}",
-        "NoBarrage": "!NO BARRAGE!",
 
         "RatingGained": "Rating gained:",
         "Complete": ["Complete:", "Complete Rating:"],
         "Complex": ["Complex:", "Complex Rating:"],
         "FullCombo": ["Full Combo:", "Full Combo Rating:"],
         "AllPerfect": ["All Perfect:", "All Perfect Rating:"],
-        "Unrated": "Unrated Chart",
         "NoProgress": "No progress",
-        "NextPage": "Next Page ->",
-        "PrevPage": "<- Previous Page",
 
         "Result": "Result of {0}:",
         "Modifiers": "Modifiers: {0}",
+        "ModifiersUsed": "Modifiers used, no record",
         "ArrowSpeed": "Arrow speed: {0}x",
         "LeaveRestart": "{0}: Leave\n{1}: Restart",
-        "Diff": "Difficulty:",
         "UnlockItem": "Item unlocked!",
 
         "Early": "Early",

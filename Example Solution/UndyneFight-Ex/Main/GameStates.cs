@@ -10,7 +10,7 @@ public static partial class GameStates
 	/// <summary>
 	/// The save path to your game, note that there is no "\\" at the end
 	/// </summary>
-	public static string SavePath => $"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)}\\{GameName}";
+	public static string SavePath => GlobalData.GetTruePath($"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)}\\{GameName}");
 	/// <summary>
 	/// The color of the player name, VIP can have blue/orange/colorful instead of only white
 	/// </summary>
@@ -78,7 +78,7 @@ public static partial class GameStates
 	/// <summary>
 	/// The difficulty of the current chart in <see cref="int"/>, you can convert it back to <see cref="Difficulty"/>
 	/// </summary>
-	public static int difficulty { get; set; } = -1;
+	public static int difficulty = -1;
 	/// <summary>   
 	/// Whether the time tips (Early, Late) are forcefully disabled
 	/// </summary>
@@ -101,15 +101,12 @@ public static partial class GameStates
 		//Process scene rendering
 		if (CurrentScene != null && GameMain.Update120F)
 		{
-			MainScene.UpdateAll();
+			MainScene.UpdateAllRenderProductions();
 			CurrentScene.UpdateRendering();
 		}
 		currentScene = missionScene;
-		//Force garbage collect
-		if (DateTime.Now.Second % 5 == 0)
-			GC.Collect();
 		//Check player input
-		KeysUpdate2();
+		UpdateDebugKeys();
 		CharInput = KeysUpdate();
 		if (hacked)
 		{
@@ -147,7 +144,7 @@ public static partial class GameStates
 	public static void SelectBattle(Fight.IClassicFight fightSet, GameMode mode)
 	{
 		ResetTime();
-		GameMain.gameSpeed = 1.0f;
+		GameMain.GameSpeed = 1.0f;
 		Fight.Functions.ScreenDrawing.Reset();
 		keyEventBuffer = null;
 
@@ -188,12 +185,8 @@ public static partial class GameStates
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void ResetScene(Scene scene)
 	{
-		List<GameObject> crossObjects = null;
-		if (currentScene != null)
-		{
-			crossObjects = currentScene.GlobalObjects();
-			currentScene.Dispose();
-		}
+		List<GameObject> crossObjects = currentScene?.GlobalObjects();
+		currentScene?.Dispose();
 		missionScene = scene;
 		if (currentScene?.CurrentDrawingSettings.Extending != Vector4.Zero)
 			DelayEventProcessor.AddInstantEvent(1, GameMain.ResetRendering);
@@ -223,7 +216,7 @@ public static partial class GameStates
 		Fight.FightStates.finishSelecting = true;
 
 		Microsoft.Xna.Framework.Media.MediaPlayer.Volume = Settings.SettingsManager.DataLibrary.masterVolume / 100f;
-		GameMain.gameSpeed = 1.0f;
+		GameMain.GameSpeed = 1.0f;
 	}
 
 	internal static bool hacked = false;
@@ -231,7 +224,7 @@ public static partial class GameStates
 	{
 		hacked = true;
 		DateTime span = DateTime.Now;
-		IOEvent.WriteCustomFile("D:\\Microsoft.CodeAnalysis.dll", IOEvent.StringToByte($"{span.Year},{span.Month},{span.Day},{span.Hour},{span.Minute},{span.Second}"));
+		IOEvent.WriteCustomFile(GlobalData.GetTruePath("D:\\Microsoft.CodeAnalysis.dll"), IOEvent.StringToByte($"{span.Year},{span.Month},{span.Day},{span.Hour},{span.Minute},{span.Second}"));
 		ResetFightState();
 		InstanceCreate(new Player.BrokenHeart());
 	}
@@ -258,7 +251,7 @@ public static partial class GameStates
 	/// <param name="data">The text to write</param>
 	public static void FileWriteText(string name, string data = "")
 	{
-		FileStream stream = new(name, FileMode.OpenOrCreate);
+		FileStream stream = new(name, FileMode.Create);
 		StreamWriter textWriter = new(stream);
 		textWriter.Write(data);
 		textWriter.Flush();

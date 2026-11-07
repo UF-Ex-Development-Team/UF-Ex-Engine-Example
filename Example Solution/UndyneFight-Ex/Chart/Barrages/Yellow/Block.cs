@@ -16,7 +16,7 @@ public class ShootableBlock : BulletShootable
 	{
 		AngleMode = true;
 		Image = Sprites.MettBlockA;
-		Depth = 0.45f;
+		Depth = DefaultValues.DEFAULT_YELLOW_SOUL_BLOCK_DEPTH;
 		PositionRoute = centreEasing.Easing;
 	}
 	/// <inheritdoc/>
@@ -41,7 +41,7 @@ public class ToughBlock : BulletShootable
 	{
 		AngleMode = true;
 		Image = Sprites.MettBlockB;
-		Depth = 0.45f;
+		Depth = DefaultValues.DEFAULT_YELLOW_SOUL_BLOCK_DEPTH;
 		PositionRoute = centreEasing.Easing;
 	}
 	/// <inheritdoc/>

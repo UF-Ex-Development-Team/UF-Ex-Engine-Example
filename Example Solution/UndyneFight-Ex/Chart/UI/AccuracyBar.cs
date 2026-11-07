@@ -13,27 +13,24 @@ public class AccuracyBar : Entity
 		private readonly float timeDel;
 		private float alpha = 4;
 		private readonly int areaBelong;
-		public AccuracyPointer(float timedel, int remark)
+		public AccuracyPointer(float timedel, DefaultValues.ScoreType remark)
 		{
 			UpdateIn120 = true;
-			if (remark == 0)
+			if (remark == DefaultValues.ScoreType.Miss)
 				areaBelong = -1;
 			drawingColor = remark switch
 			{
-				0 => Color.Silver,
-				1 => Color.LawnGreen,
-				2 => Color.CadetBlue,
-				3 => Color.Gold,
-				4 => Color.Orange,
-				5 => Color.Orange,
-				_ => throw new ArgumentOutOfRangeException(nameof(remark))
+				DefaultValues.ScoreType.Miss => Color.Silver,
+				DefaultValues.ScoreType.Okay => Color.LawnGreen,
+				DefaultValues.ScoreType.Nice => Color.CadetBlue,
+				DefaultValues.ScoreType.Perfect => Color.Gold,
+				_ => Color.Orange,
 			};
 			timeDel = timedel;
 		}
 		public override void Start()
 		{
 			Entity fatherEntity = FatherObject as Entity;
-			controlLayer = fatherEntity.controlLayer;
 			if (areaBelong == 0)
 				Centre = fatherEntity.Centre + new Vector2(float.Clamp(MathUtil.SignedPow(timeDel, 1.3f) * 6f, -70, 70), 0);
 			else if (areaBelong == -1)
@@ -50,15 +47,16 @@ public class AccuracyBar : Entity
 
 		public override void Update()
 		{
+			controlLayer = CurrentFightingScene.Accuracy.controlLayer; 
 			if ((alpha -= 0.009f) < 0)
 				Dispose();
 		}
 	}
 	public AccuracyBar()
 	{
-		Depth = 0.15f;
+		Depth = DefaultValues.DEFAULT_ACCURACY_BAR_DEPTH;
 		Image = Sprites.accuracyBar;
-		Centre = new(320, 582);
+		Centre = DefaultValues.DEFAULT_ACCURACY_BAR_POSITION;
 		UpdateIn120 = true;
 	}
 
@@ -111,7 +109,7 @@ public class AccuracyBar : Entity
 	internal List<Arrow> AllArrows { get; init; } = [];
 	internal Dictionary<string, List<Arrow>> TaggedArrows { get; init; } = [];
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal void PushDelta(float time, int remark, int col, int way, Player.Heart.ShieldManager shieldManager)
+	internal void PushDelta(float time, DefaultValues.ScoreType remark, int col, int way, Player.Heart.ShieldManager shieldManager)
 	{
 		AddChild(new AccuracyPointer(time, remark));
 		shieldManager.ShieldShine(way, col, remark);

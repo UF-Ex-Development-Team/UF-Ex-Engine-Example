@@ -222,7 +222,7 @@ namespace UndyneFight_Ex.Entities
 		/// <inheritdoc/>
 		public override void Update()
 		{
-			DelayEventProcessor.AddTimeRangedEvent(_timeDelay - (_timeDelay > 0 ? (UpdateIn120 ? 0.5f : 1) : 0), _action, _duration, UpdateIn120);
+			DelayEventProcessor.AddTimeRangedEvent(_timeDelay - 1, _action, _duration, UpdateIn120);
 			Dispose();
 		}
 	}
@@ -266,6 +266,14 @@ namespace UndyneFight_Ex.Entities
 		/// </summary>
 		internal static readonly List<EventInfo> DelayedTimeRangedEvents = [];
 		/// <summary>
+		/// The list of delayed instant events to be added
+		/// </summary>
+		internal static readonly List<EventInfo> BufferDelayedInstantEvents = [];
+		/// <summary>
+		/// The list of delayed time ranged events to be added
+		/// </summary>
+		internal static readonly List<EventInfo> BufferDelayedTimeRangedEvents = [];
+		/// <summary>
 		/// Whether the delay event schedule has been cleared from either a natural or action invoked scene transition
 		/// </summary>
 		internal static bool ScheduleCleared = false;
@@ -274,7 +282,13 @@ namespace UndyneFight_Ex.Entities
 		/// </summary>
 		/// <param name="delay">The amount of time to delay</param>
 		/// <param name="action">The action to invoke</param>
-		public static void AddInstantEvent(float delay, Action action) => DelayedInstantEvents.Add(new EventInfo((int)delay, action, 0));
+		public static void AddInstantEvent(float delay, Action action)
+		{
+			if (delay <= 0)
+				action();
+			else
+				BufferDelayedInstantEvents.Add(new EventInfo((int)delay, action, 0));
+		}
 		/// <summary>
 		/// Schedules a delayed time ranged event
 		/// </summary>
@@ -282,32 +296,13 @@ namespace UndyneFight_Ex.Entities
 		/// <param name="action">The action to invoke</param>
 		/// <param name="dur">The duration of the event</param>
 		/// <param name="is120">Whether to update every other frame</param>
-		public static void AddTimeRangedEvent(float delay, Action action, float dur, bool is120) => DelayedTimeRangedEvents.Add(new EventInfo((int)delay, action, (int)dur, is120));
+		public static void AddTimeRangedEvent(float delay, Action action, float dur, bool is120 = false) => BufferDelayedTimeRangedEvents.Add(new EventInfo((int)float.Max(0, delay), action, (int)dur, is120));
 		/// <summary>
 		/// Processes all scheduled delay events
 		/// </summary>
 		internal static void ProcessDelayEvents()
 		{
 			ScheduleCleared = false;
-			//Process instant events
-			for (int i = DelayedInstantEvents.Count - 1; i >= 0; i--)
-			{
-				EventInfo info = DelayedInstantEvents[i];
-				if (info.TimeDelay <= 0) //Execute events
-				{
-					info.Action();
-					//Check if the action caused a scene transition that clears all events
-					if (!ScheduleCleared)
-						DelayedInstantEvents.RemoveAt(i); //If not then remove from list
-					else //If scene changed then all scheduled events are cleared
-						break;
-				}
-				else //Process events
-				{
-					info.TimeDelay -= 0.5f;
-					DelayedInstantEvents[i] = info;
-				}
-			}
 			//Process time ranged events
 			for (int i = DelayedTimeRangedEvents.Count - 1; i >= 0; i--)
 			{
@@ -329,6 +324,29 @@ namespace UndyneFight_Ex.Entities
 				info.TimeDelay -= 0.5f;
 				DelayedTimeRangedEvents[i] = info;
 			}
+			//Process instant events
+			for (int i = DelayedInstantEvents.Count - 1; i >= 0; i--)
+			{
+				EventInfo info = DelayedInstantEvents[i];
+				if (info.TimeDelay <= 0) //Execute events
+				{
+					info.Action();
+					//Check if the action caused a scene transition that clears all events
+					if (!ScheduleCleared)
+						DelayedInstantEvents.RemoveAt(i); //If not then remove from list
+					else //If scene changed then all scheduled events are cleared
+						break;
+				}
+				else //Process events
+				{
+					info.TimeDelay -= 0.5f;
+					DelayedInstantEvents[i] = info;
+				}
+			}
+			DelayedInstantEvents.AddRange(BufferDelayedInstantEvents);
+			DelayedTimeRangedEvents.AddRange(BufferDelayedTimeRangedEvents);
+			BufferDelayedInstantEvents.Clear();
+			BufferDelayedTimeRangedEvents.Clear();
 		}
 		/// <summary>
 		/// Clears all scheduled delay events
@@ -342,11 +360,19 @@ namespace UndyneFight_Ex.Entities
 		/// <summary>
 		/// Clears all scheduled instant events
 		/// </summary>
-		public static void ClearInstantEvents() => DelayedInstantEvents.Clear();
+		public static void ClearInstantEvents()
+		{
+			DelayedInstantEvents.Clear();
+			BufferDelayedInstantEvents.Clear();
+		}
 		/// <summary>
 		/// Clears all scheduled time ranged events
 		/// </summary>
-		public static void ClearTimeRangedEvents() => DelayedTimeRangedEvents.Clear();
+		public static void ClearTimeRangedEvents()
+		{
+			DelayedTimeRangedEvents.Clear();
+			BufferDelayedTimeRangedEvents.Clear();
+		}
 	}
 	/// <summary>
 	/// Background for legacy engine
@@ -366,7 +392,7 @@ namespace UndyneFight_Ex.Entities
 			this.camera = camera;
 		}
 
-		public override void Draw() => FormalDraw(Image, Centre, Color.White * Alpha, new Vector2(640 / Image.Width, 480 / Image.Height), Rotation, ImageCentre);
+		public override void Draw() => GeneralDraw(Image, Centre, Color.White * Alpha, new Vector2(640 / Image.Width, 480 / Image.Height), Rotation);
 
 		public override void Update()
 		{
@@ -419,22 +445,40 @@ namespace UndyneFight_Ex
 		/// Whether to enable pre-multiply alpha
 		/// </summary>
 		public bool PreMultiplyAlpha { get; set; } = false;
-
-		private Vector2 _anchor;
 		private bool _anchorEnabled = false;
+#if NET10_0_OR_GREATER
+		/// <summary>
+		/// The anchor of the image
+		/// </summary>
+		public Vector2 Anchor
+		{
+			get => _anchorEnabled ? field : ImageCentre;
+			set
+			{
+				field = value;
+				_anchorEnabled = value != ImageCentre;
+			}
+		}
+#else
 		/// <summary>
 		/// The anchor of the image
 		/// </summary>
 		public Vector2 Anchor
 		{
 			get => _anchorEnabled ? _anchor : ImageCentre;
-			set { _anchor = value; _anchorEnabled = true; }
+			set
+			{
+				_anchor = value;
+				_anchorEnabled = value != ImageCentre;
+			}
 		}
+		private Vector2 _anchor;
+#endif
 		/// <inheritdoc/>
 		public override void Draw()
 		{
 			if (Alpha > 0 && Image != null)
-				FormalDraw(Image, Centre, PreMultiplyAlpha ? Color.Lerp(Color.Transparent, BlendColor, Alpha) : BlendColor * Alpha, Scale, Rotation, Anchor);
+				GeneralDraw(Image, Centre, PreMultiplyAlpha ? Color.Lerp(Color.Transparent, BlendColor, Alpha) : BlendColor * Alpha, Scales, Rotation, Anchor);
 		}
 	}
 	/// <summary>
@@ -463,7 +507,7 @@ namespace UndyneFight_Ex
 		/// <summary>
 		/// Draws the entity
 		/// </summary>
-		public override void Draw() => Font.CentreDraw(Text, centre, BlendColor * Alpha, Scale, AngleMode ? MathUtil.GetRadian(Rotation) : Rotation, Depth);
+		public override void Draw() => Font.CentreDraw(Text, centre, BlendColor * Alpha, Scales, AngleMode ? MathUtil.GetRadian(Rotation) : Rotation, Depth);
 		/// <summary>
 		/// The update logic of the entity
 		/// </summary>
@@ -487,7 +531,6 @@ namespace UndyneFight_Ex
 		/// <summary>
 		/// The controlling surface of the entity (Default <see cref="Surface.Normal"/>)
 		/// </summary>
-
 		public Surface controlLayer = Surface.Normal;
 		/// <summary>
 		/// The sprite batch that is used for drawing
@@ -501,12 +544,8 @@ namespace UndyneFight_Ex
 		/// <param name="color">The color of the texture</param>
 		/// <param name="rotation">The rotation of the texture</param>
 		/// <param name="rotateCentre">The center of rotation</param>
-		public void FormalDraw(Texture2D tex, Vector2 centre, Color color, float rotation, Vector2 rotateCentre)
-		{
-			rotation = DrawingRotation(rotation);
-			if (!NotInScene(tex, centre, vec2.One, rotation, rotateCentre))
-				GameMain.MissionSpriteBatch.Draw(tex, centre, null, color * controlLayer.drawingAlpha, rotation, rotateCentre, 1.0f, SpriteEffects.None, Depth);
-		}
+		[Obsolete("Use GeneralDraw() instead")]
+		public void FormalDraw(Texture2D tex, Vector2 centre, Color color, float rotation, Vector2 rotateCentre) => GeneralDraw(tex, centre, color, rotation: rotation, spriteOrigin: rotateCentre);
 		/// <summary>
 		/// Draws the given texture
 		/// </summary>
@@ -518,20 +557,18 @@ namespace UndyneFight_Ex
 		/// <param name="rotation">The rotation of the texture</param>
 		/// <param name="rotateCentre">The center of rotation</param>
 		/// <param name="spriteEffects">The sprite effect to apply on it</param>
-		public void FormalDraw(Texture2D tex, Vector2 centre, Rectangle? texArea, Color color, Vector2 drawingScale, float rotation, Vector2 rotateCentre, SpriteEffects spriteEffects = SpriteEffects.None)
-		{
-			rotation = DrawingRotation(rotation);
-			if (!NotInScene(tex, centre, drawingScale, rotation, rotateCentre))
-				GameMain.MissionSpriteBatch.Draw(tex, centre, texArea, color * controlLayer.drawingAlpha, rotation, rotateCentre, drawingScale, spriteEffects, Depth);
-
-		}
+		/// <remarks>Same as GeneralDraw(tex, centre, color, drawingScale, DrawingRotation(rotation), rotateCentre, texArea, texArea)</remarks>
+		[Obsolete("Use GeneralDraw() instead")]
+		public void FormalDraw(Texture2D tex, Vector2 centre, Rectangle? texArea, Color color, Vector2 drawingScale, float rotation, Vector2 rotateCentre, SpriteEffects spriteEffects = SpriteEffects.None) => GeneralDraw(tex, centre, color, drawingScale, DrawingRotation(rotation), rotateCentre, texArea, texArea, null);
 		/// <summary>
 		/// Draws the given texture
 		/// </summary>
 		/// <param name="tex">The texture to draw</param>
 		/// <param name="area">The area to draw the texture in</param>
 		/// <param name="color">The color of the texture to draw</param>
-		public void FormalDraw(Texture2D tex, CollideRect area, Color color) => GameMain.MissionSpriteBatch.Draw(tex, area, null, color * controlLayer.drawingAlpha, 0, Vector2.Zero, SpriteEffects.None, Depth);
+		/// <remarks>Same as GeneralDraw(tex, area.Centre, color, Vector2.One, 0, area.Size / 2)</remarks>
+		[Obsolete("Use GeneralDraw() instead")]
+		public void FormalDraw(Texture2D tex, CollideRect area, Color color) => GeneralDraw(tex, area.Centre, color, Vector2.One, 0, area.Size / 2);
 		/// <summary>
 		/// Draws the given texture in a restricted area
 		/// </summary>
@@ -539,6 +576,7 @@ namespace UndyneFight_Ex
 		/// <param name="area">The area of the texture to draw</param>
 		/// <param name="restrict">The area the texture can be drawn in</param>
 		/// <param name="color">The color of the texture to draw</param>
+		[Obsolete("Use GeneralDraw() instead")]
 		public void FormalDraw(Texture2D tex, Rectangle area, Rectangle restrict, Color color) => GameMain.MissionSpriteBatch.Draw(tex, area, restrict, color * controlLayer.drawingAlpha, 0, Vector2.Zero, SpriteEffects.None, Depth);
 		/// <summary>
 		/// Draws the given texture
@@ -549,7 +587,9 @@ namespace UndyneFight_Ex
 		/// <param name="drawingScale">The scale of the drawn texture</param>
 		/// <param name="rotation">The rotation of the texture</param>
 		/// <param name="rotateCentre">The center of rotation</param>
-		public void FormalDraw(Texture2D tex, Vector2 centre, Color color, float drawingScale, float rotation, Vector2 rotateCentre) => FormalDraw(tex, centre, color, new Vector2(drawingScale), rotation, rotateCentre);
+		/// <remarks>Same as GeneralDraw(tex, centre, color, new Vector2(drawingScale), rotation, rotateCentre)</remarks>
+		[Obsolete("Use GeneralDraw() instead")]
+		public void FormalDraw(Texture2D tex, Vector2 centre, Color color, float drawingScale, float rotation, Vector2 rotateCentre) => GeneralDraw(tex, centre, color, new Vector2(drawingScale), rotation, rotateCentre);
 		/// <summary>
 		/// Draws the given texture
 		/// </summary>
@@ -559,12 +599,9 @@ namespace UndyneFight_Ex
 		/// <param name="drawingScale">The scale of the drawn texture</param>
 		/// <param name="rotation">The rotation of the texture</param>
 		/// <param name="rotateCentre">The center of rotation</param>
-		public void FormalDraw(Texture2D tex, Vector2 centre, Color color, Vector2 drawingScale, float rotation, Vector2 rotateCentre)
-		{
-			rotation = DrawingRotation(rotation);
-			if (!NotInScene(tex, centre, drawingScale, rotation, rotateCentre))
-				GameMain.MissionSpriteBatch.Draw(tex, centre, null, color * controlLayer.drawingAlpha, rotation, rotateCentre, drawingScale, SpriteEffects.None, Depth);
-		}
+		/// <remarks>Same as GeneralDraw(tex, centre, color, drawingScale, DrawingRotation(rotation), rotateCentre)</remarks>
+		[Obsolete("Use GeneralDraw() instead")]
+		public void FormalDraw(Texture2D tex, Vector2 centre, Color color, Vector2 drawingScale, float rotation, Vector2 rotateCentre) => GeneralDraw(tex, centre, color, drawingScale, DrawingRotation(rotation), rotateCentre);
 		/// <summary>
 		/// A general texture drawing function that integrates all functionalities from all FormalDraw functions
 		/// </summary>
@@ -586,10 +623,9 @@ namespace UndyneFight_Ex
 			}
 			Vector2 GetRotCen = spriteOrigin ?? new(texture.Width / 2f, texture.Height / 2f);
 			Vector2 drawingScale = scale ?? Vector2.One;
-			if (!NotInScene(texture, position, drawingScale, rotation, GetRotCen))
+			if (controlLayer.Name == "UI" || !NotInScene(texture, position, drawingScale, rotation, GetRotCen))
 				GameMain.MissionSpriteBatch.Draw(texture, new CollideRect(position - GetRotCen, texArea.HasValue ? texArea.Value.Size : texture.Bounds.Size.ToVector2()), sourceRect, (color ?? Color.White) * controlLayer.drawingAlpha, rotation, GetRotCen, drawingScale, SpriteEffects.None, depth ?? Depth);
 		}
-		private static float SqrtTwo => MathF.Sqrt(2);
 		/// <summary>
 		/// Check if the texture is inside the current view
 		/// </summary>
@@ -604,18 +640,21 @@ namespace UndyneFight_Ex
 			if (!DrawOptimize)
 				return false;
 			//Create transform matrix of the texture
-			Matrix transform = Matrix.CreateTranslation(-rotateCentre.X, -rotateCentre.Y, 0) * Matrix.CreateScale(drawingScale.X, drawingScale.Y, 1) * Matrix.CreateRotationZ(rotation) * Matrix.CreateTranslation(centre.X, centre.Y, 0);
-			Vector2[] corners = [Vector2.Zero, new(tex.Width, 0), new(0, tex.Height), new(tex.Width, tex.Height)];
+			Vector2 relativePos = centre + Fight.Functions.ScreenDrawing.ScreenPositionDelta;
+			Matrix transform = Matrix.CreateTranslation(-rotateCentre.X, -rotateCentre.Y, 0) * Matrix.CreateScale(drawingScale.X, drawingScale.Y, 1) * Matrix.CreateRotationZ(rotation + Fight.Functions.ScreenDrawing.ScreenAngle * MathF.PI / 180f) * Matrix.CreateTranslation(relativePos.X, relativePos.Y, 0);
+			float texWidth = tex.Width;
+			float texHeight = tex.Height;
+			Vector2[] corners = [Vector2.Zero, new(texWidth, 0), new(0, texHeight), new(texWidth, texHeight)];
 			//Apply transformation
-			for (int i = 0; i < corners.Length; i++)
+			for (int i = 0; i < 4; i++)
 				corners[i] = Vector2.Transform(corners[i], transform);
 			//Get approximate bounding box of the transformed texture
-			float minX = corners.Min(v => v.X);
-			float maxX = corners.Max(v => v.X);
-			float minY = corners.Min(v => v.Y);
-			float maxY = corners.Max(v => v.Y);
+			int minX = (int)corners.Min(v => v.X);
+			int maxX = (int)corners.Max(v => v.X);
+			int minY = (int)corners.Min(v => v.Y);
+			int maxY = (int)corners.Max(v => v.Y);
 			//AABB check
-			Rectangle boundingBox = new((int)minX, (int)minY, (int)(maxX - minX), (int)(maxY - minY));
+			Rectangle boundingBox = new(minX, minY, maxX - minX, maxY - minY);
 			return !ViewBox.Intersects(boundingBox);
 		}
 		private static readonly Rectangle ViewBox = new(0, 0, 640, 480);
@@ -623,25 +662,42 @@ namespace UndyneFight_Ex
 		/// The depth of the entity (The higher the value is, the less shallow it is)
 		/// </summary>
 		public float Depth { get; set; }
-		private Texture2D image;
 		/// <summary>
 		/// The centre of the image
 		/// </summary>
 		protected Vector2 ImageCentre { get; set; }
+#if NET10_0_OR_GREATER
 		/// <summary>
 		/// The image of the entity to draw
 		/// </summary>
 		public Texture2D Image
 		{
-			get => image;
+			get;
 			set
 			{
 				if (value == null)
 					return;
-				image = value;
+				field = value;
 				ImageCentre = new Vector2(value.Width, value.Height) / 2.0f;
 			}
 		}
+#else
+		/// <summary>
+		/// The image of the entity to draw
+		/// </summary>
+		public Texture2D Image
+		{
+			get => _image;
+			set
+			{
+				if (value == null)
+					return;
+				_image = value;
+				ImageCentre = new Vector2(value.Width, value.Height) / 2.0f;
+			}
+		}
+		private Texture2D _image;
+#endif
 		/// <summary>
 		/// Do not use this variable
 		/// </summary>
@@ -653,7 +709,15 @@ namespace UndyneFight_Ex
 		/// <summary>
 		/// The scale of the entity
 		/// </summary>
-		public float Scale { get; set; } = 1.0f;
+		public float Scale
+		{
+			get => (Scales.X + Scales.Y) / 2f;
+			set => Scales = new Vector2(value);
+		}
+		/// <summary>
+		/// The Vector2 scale of the entity
+		/// </summary>
+		public Vector2 Scales { get; set; } = Vector2.One;
 		/// <summary>
 		/// The colliding box of the entity
 		/// </summary>
@@ -709,7 +773,7 @@ namespace UndyneFight_Ex
 			{
 				controlLayer = original.controlLayer;
 				attracter = original;
-				Image = shinyImage ?? original.image;
+				Image = shinyImage ?? original.Image;
 				drawingColor = color ?? Color.White;
 			}
 
@@ -734,7 +798,7 @@ namespace UndyneFight_Ex
 					Dispose();
 			}
 			/// <inheritdoc/>
-			public override void Draw() => FormalDraw(image, Centre, drawingColor * (2 - drawingScale), Vector2.Lerp(Vector2.One, missionSize * baseScale, drawingScale - 1), MathUtil.GetRadian(Rotation), ImageCentre);
+			public override void Draw() => GeneralDraw(Image, Centre, drawingColor * (2 - drawingScale), Vector2.Lerp(Vector2.One, missionSize * baseScale, drawingScale - 1), MathUtil.GetRadian(Rotation));
 		}
 
 		protected class RetentionEffect : Entity
@@ -751,10 +815,10 @@ namespace UndyneFight_Ex
 				totalTime = time;
 				Rotation = original.Rotation;
 				Centre = original.Centre;
-				Image = original.image;
+				Image = original.Image;
 			}
 			/// <inheritdoc/>
-			public override void Draw() => FormalDraw(image, Centre, color * alpha, Rotation, ImageCentre);
+			public override void Draw() => GeneralDraw(Image, Centre, color * alpha, rotation: Rotation);
 
 			private float alpha = 1f;
 			/// <inheritdoc/>
@@ -811,17 +875,7 @@ namespace UndyneFight_Ex
 		/// <param name="tagName">The tag to check</param>
 		/// <returns>Whether the object contains the given tag</returns>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public bool ContainTag(string tagName)
-		{
-			if (tags == null)
-				return false;
-			foreach (Tag v in tags)
-			{
-				if (v.tagName == tagName)
-					return true;
-			}
-			return false;
-		}
+		public bool ContainTag(string tagName) => tags?.Any(v => v.tagName == tagName) ?? false;
 		/// <summary>
 		/// Broadcasts an event to all objects
 		/// </summary>

@@ -11,7 +11,7 @@ public class NameShower : Entity
 	/// <summary>
 	/// Creates the name shower entity
 	/// </summary>
-	public NameShower() { Centre = new Vector2(20, 457); instance = this; }
+	public NameShower() { Centre = DefaultValues.DEFAULT_NAME_SHOWER_POSITION; instance = this; }
 	/// <summary>
 	/// The LV of the chart
 	/// </summary>
@@ -36,6 +36,8 @@ public class NameShower : Entity
 	/// <inheritdoc/>
 	public override void Draw()
 	{
+		if (!isInBattle)
+			return;
 		Vector2 namePos = new(Centre.X, Centre.Y - FightFont.SFX.MeasureString("HP").Y / 2f + 4);
 		string showing = OverrideName.DefaultIfNullOrEmpty(PlayerManager.CurrentUser is null ? "guest" : PlayerManager.currentPlayer), displayName = StringUtil.ShiftingEllipsis(showing, 8, DisplayNameTime += 1/90f);
 		Vector2 lvPos = new(FightFont.SFX.MeasureString(displayName).X + 22 + Centre.X + (NameColor == "Colorful" ? 20 : 0), Centre.Y - FightFont.SFX.MeasureString("HP").Y / 2f + 4);

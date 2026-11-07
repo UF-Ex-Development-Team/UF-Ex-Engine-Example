@@ -12,7 +12,7 @@ public partial class Arrow : ICustomMotion
 
 		if (PositionRoute == null)
 		{
-			if (rotatingType == 1)
+			if (RotateType == 1)
 			{
 				distance = (BlockTime - GametimeF) * Speed;
 				if (distance >= 186)
@@ -31,7 +31,7 @@ public partial class Arrow : ICustomMotion
 			if (IsRotate)
 				Rotation += (BlockTime - GametimeF) * 2.5f * RotateScale;
 
-			float trueSPP = speedUpPlace * ((way % 2 == 0) ? 1.35f : 1.0f);
+			float trueSPP = speedUpPlace * ((Way % 2 == 0) ? 1.35f : 1.0f);
 			if (IsSpeedup && distance >= trueSPP)
 				distance -= (distance - trueSPP) / 1.8f;
 			else if (RandBool() && IsSpeedup)
@@ -52,7 +52,7 @@ public partial class Arrow : ICustomMotion
 			float extraDist = (Scale - 1) * 10f + additiveDistance;
 			Vector2 offset = Offset;
 			if (RotateOffset)
-				offset = MathUtil.Rotate(offset, Rotation + CentreRotationOffset);
+				offset = offset.RotateDegrees(Rotation + CentreRotationOffset);
 			Centre = MissionCentre + MathUtil.GetVector2(distance + 44 + 5 + extraDist + (hasGreenFlag ? 5 : 0), Rotation + CentreRotationOffset) + offset;
 		}
 		else
@@ -95,6 +95,20 @@ public partial class Arrow : ICustomMotion
 		get => throw new NotImplementedException();
 		set => throw new NotImplementedException();
 	}
+#if NET10_0_OR_GREATER
+	/// <summary>
+	/// The target position of the arrow (Default the heart)
+	/// </summary>
+	public Vector2 MissionCentre
+	{
+		set
+		{
+			_anchorOnHeart = false;
+			field = value;
+		}
+		get => _anchorOnHeart ? Mission.Centre : field;
+	}
+#else
 	/// <summary>
 	/// The target position of the arrow (Default the heart)
 	/// </summary>
@@ -108,6 +122,7 @@ public partial class Arrow : ICustomMotion
 		get => _anchorOnHeart ? Mission.Centre : _missionCentre;
 	}
 	private Vector2 _missionCentre;
+#endif
 	private bool _anchorOnHeart = true;
 	/// <inheritdoc/>
 	public Vector2 CentrePosition => Centre - Mission.Centre;

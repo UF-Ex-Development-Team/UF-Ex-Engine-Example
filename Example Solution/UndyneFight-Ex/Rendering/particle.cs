@@ -59,7 +59,7 @@ public class ParticleGather : Entity
 	{
 		Color drawCol = drawingColor * MathHelper.Min(0.7f, 1.3f * appearTime / duration);
 		for (int i = 0; i < count; i++)
-			FormalDraw(Image, Centre + GetVector2(speeds[i] * timeLeft, rotations[i]), drawCol, sizes[i], 0, ImageCentre);
+			GeneralDraw(Image, Centre + GetVector2(speeds[i] * timeLeft, rotations[i]), drawCol, new(sizes[i]));
 	}
 }
 /// <summary>
@@ -99,20 +99,34 @@ public class Particle : Entity
 	public float RotateSpeed { private get; set; } = 0.0f;
 
 	private readonly float size;
-
-	private bool autoRotate = false;
+#if NET10_0_OR_GREATER
 	/// <summary>
 	/// Whether the particle automatically rotates
 	/// </summary>
 	public bool AutoRotate
 	{
-		get => autoRotate;
+		get;
 		set
 		{
-			autoRotate = value;
+			field = value;
+			RotateSpeed = value ? Rand(-2.1f, 2.1f) : 0;
+		}
+	} = false;
+#else
+	/// <summary>
+	/// Whether the particle automatically rotates
+	/// </summary>
+	public bool AutoRotate
+	{
+		get => _autoRotate;
+		set
+		{
+			_autoRotate = value;
 			RotateSpeed = value ? Rand(-2.1f, 2.1f) : 0;
 		}
 	}
+	private bool _autoRotate = false;
+#endif
 	/// <summary>
 	/// The friction of the particle's motion
 	/// </summary>
@@ -121,7 +135,7 @@ public class Particle : Entity
 	private Color color;
 	private Vector2 speed;
 	/// <inheritdoc/>
-	public override void Draw() => FormalDraw(Image, Centre, color * Alpha, size, Rotation, ImageCentre);
+	public override void Draw() => GeneralDraw(Image, Centre, color * Alpha, new(size), Rotation);
 	/// <inheritdoc/>
 	public override void Update()
 	{
@@ -130,7 +144,7 @@ public class Particle : Entity
 		else
 			Dispose();
 		Centre += speed *= 1 - SlowLerp;
-		if (autoRotate)
+		if (AutoRotate)
 			Rotation += RotateSpeed / 180f * MathHelper.Pi;
 	}
 }

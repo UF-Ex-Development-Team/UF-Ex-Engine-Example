@@ -13,7 +13,7 @@ uniform float2 itextureSize; //该表面大小
 //导入物体数据
 uniform float3 iProjectAxisX, iProjectAxisY, iProjectAxisZ; //物体坐标系
 uniform float3 iProjectPoint; //物体在世界坐标系中的位置
-uniform float2 iProjectPointOffect; //物体在世界坐标系中的锚点
+uniform float2 iProjectPointOffset; //物体在世界坐标系中的锚点
 
 //导入相机数据
 uniform float3 iVisuospatial; //视场
@@ -36,17 +36,20 @@ struct VertexShaderOutput
 
 float4 localToColor(sampler2D samplerTexture, float2 Position)
 {
-	return ((Position.x > 1.0) || (Position.y > 1.0) || (Position.x < 0.0) || (Position.y < 0.0)) ? 0 : tex2D(samplerTexture, Position);
+	if ((Position.x > 1.0) || (Position.y > 1.0) || (Position.x < 0.0) || (Position.y < 0.0))
+		return float4(0.0, 0.0, 0.0, 0.0);
+	else
+		return tex2D(samplerTexture, Position);
 }
 
 float3 vectorRotation(float3 rotVector, float3 forceVector, float angle)
 {
-	return rotVector * cos(angle) + cross(rotVector, forceVector) * sin(angle) + forceVector * (dot(forceVector, rotVector) * (1.0 - cos(angle)));
+	return rotVector * cos(angle) + cross(rotVector, forceVector) * sin(angle) + forceVector * dot(forceVector, rotVector) * (1.0 - cos(angle));
 }
 
 float3 breakVector(float3 _vector, float3 normalVectorX, float3 normalVectorY, float3 normalVectorZ)
 {
-	return mul(float3x3(normalVectorX, normalVectorY, normalVectorZ), _vector);
+	return float3(dot(_vector, normalVectorX), dot(_vector, normalVectorY), dot(_vector, normalVectorZ));
 }
 
 float4 MainPS(VertexShaderOutput input) : COLOR
@@ -60,10 +63,10 @@ float4 MainPS(VertexShaderOutput input) : COLOR
 	float vectorCheck = dot(iProjectAxisZ, cameraVector);
 	if (vectorCheck != 0.0)
 	{
-		float crashLength = -dot(iProjectAxisZ, iProjectPoint - iPosition) / vectorCheck;
+		float crashLength = dot(iProjectAxisZ, iProjectPoint - iPosition) / vectorCheck;
 		if (crashLength > 0.0)
 		{
-			float3 surfaceVector = iPosition + cameraVector * crashLength - iProjectPoint + iProjectAxisX * iProjectPointOffect.x + iProjectAxisY * iProjectPointOffect.y;
+			float3 surfaceVector = iPosition + cameraVector * crashLength - iProjectPoint + iProjectAxisX * iProjectPointOffset.x + iProjectAxisY * iProjectPointOffset.y;
 			float3 textureVector = breakVector(surfaceVector, iProjectAxisX, iProjectAxisY, iProjectAxisZ);
 			color += localToColor(SpriteTextureSampler, textureVector.xy / itextureSize);
 		}

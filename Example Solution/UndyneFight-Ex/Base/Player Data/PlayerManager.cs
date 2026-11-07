@@ -8,10 +8,10 @@ public static class PlayerManager
 	private const string CustomChartNotes = "Importing custom charts are very easy, as long as the source chart is made on the same SDK version and the same .NET version, you can import it!\nRequired files:\n - .dll file of the source charts (Rhythm Recall generates Rhythm Recall.dll)\n - The Content files of the source charts (song.ogg, song.xnb, paint.xnb, those kind of files, you can just copy the entire source Content folder)\n\nTo load a custom chart, just open the game!";
 	internal static void Initialize()
 	{
-		string path = AppContext.BaseDirectory + "D:\\Microsoft.CodeAnalysis.dll";
-		if (File.Exists(Path.Combine(path.Split('\\'))))
+		string path = GlobalData.GetTruePath(AppContext.BaseDirectory + "D:\\Microsoft.CodeAnalysis.dll");
+		if (File.Exists(path))
 		{
-			string val = IOEvent.ByteToString(IOEvent.ReadCustomFile(Path.Combine(path.Split('\\'))))[0];
+			string val = IOEvent.ByteToString(IOEvent.ReadCustomFile(path))[0];
 			string[] divs = val.Split(',');
 			int[] s = new int[6];
 			for (int i = 0; i < 6; i++)
@@ -24,34 +24,34 @@ public static class PlayerManager
 				_ = Directory.CreateDirectory(path);
 		}
 		//User folder
-		CheckCreateDirectory(Path.Combine($"{GameStates.SavePath}\\Datas\\Users".Split('\\')));
+		CheckCreateDirectory(GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Users"));
 		//Licenses folder
-		CheckCreateDirectory(Path.Combine($"{AppContext.BaseDirectory}Licenses".Split('\\')));
+		CheckCreateDirectory(GlobalData.GetTruePath($"{AppContext.BaseDirectory}Licenses"));
 		//Custom Charts folder
-		CheckCreateDirectory(Path.Combine($"{GameStates.SavePath}\\Custom Charts".Split('\\')));
-		path = Path.Combine($"{GameStates.SavePath}\\Custom Charts\\Note.txt".Split('\\'));
-		if (File.Exists(path))
-			File.Delete(path);
-		FileStream stream = new(path, FileMode.OpenOrCreate);
+		CheckCreateDirectory(GlobalData.GetTruePath($"{GameStates.SavePath}\\Custom Charts"));
+		//Settings folder
+		CheckCreateDirectory(GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Settings"));
+		//Create default settings
+		if (!File.Exists(SettingsFilePath + ".Tmpf"))
+			SaveSettings();
+		SaveInfo loadedInfo = FileIO.ReadFile(SettingsFilePath);
+		Settings.Load(SettingsInfo = loadedInfo.Nexts["Settings"]);
+		KeyBinds.Load(KeyBindInfo = loadedInfo.Nexts["Keybinds"]);
+		//Create custom chart notes file
+		FileStream stream = new(GlobalData.GetTruePath($"{GameStates.SavePath}\\Custom Charts\\Note.txt"), FileMode.Create);
 		StreamWriter textWriter = new(stream);
 		textWriter.Write(CustomChartNotes);
 		textWriter.Flush();
 		stream.Close();
 		#endregion
-		path = Path.Combine($"{GameStates.SavePath}\\Datas\\Users".Split('\\'));
-		string[] files = Directory.GetFiles(path);
-		foreach (string s in files)
-		{
-			if (!s.EndsWith(".Tmpf"))
-				continue;
-			string[] v = s.Split('\\');
-			string s2 = v[^1], s3 = s2[..^5];
-			SaveInfo i1 = FileIO.ReadFile(s[..^5]);
-			User user = new();
-			user.Load(i1);
-			playerInfo.Add(s3, user);
-		}
+		//Load user files
+		LoadUserData();
 	}
+	internal static readonly string SettingsFilePath = GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Settings\\Settings");
+	internal static UserService.Settings Settings = new();
+	internal static SaveInfo SettingsInfo;
+	internal static KeybindData KeyBinds = new();
+	internal static SaveInfo KeyBindInfo;
 	internal static Dictionary<string, SaveInfo> userSaveInfo = [];
 	/// <summary>
 	/// Logins as the user with the given username
@@ -63,15 +63,13 @@ public static class PlayerManager
 		if (playerInfo.ContainsKey(s))
 		{
 			currentPlayer = s;
-			//Apply user settings
-			CurrentUser.ApplySettings();
 			_ = userSaveInfo.TryGetValue(currentPlayer, out SaveInfo saveInfo);
 			//Load user achievements
 			CurrentUser._achievement.Load(saveInfo.Nexts["Achievements"]);
+			//Load user challenges
+			CurrentUser.ChallengeData.Load(saveInfo.Nexts["ChallengeData"]);
 			_ = CurrentUser.CalculateRating();
 			Achievements.AchievementManager.CheckUserAchievements();
-			//Load user defined keybinds
-			CurrentUser.KeyBinds.Load(saveInfo.Nexts["Keybinds"]);
 			GameStates.KeyChecker.InputKeys = new(KeybindData.UserKeys);
 			//Store items into user inventory
 			ShopItemData.UserItems.Clear();
@@ -84,20 +82,21 @@ public static class PlayerManager
 			GameStates.CheatAffirmed();
 		Save();
 		//Create backup
-		string BackupPath = Path.Combine($"{GameStates.SavePath}\\Datas\\Users\\Backup");
+		string BackupPath = GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Users\\Backup");
 		if (!Directory.Exists(BackupPath))
 			_ = Directory.CreateDirectory(BackupPath);
-		IOEvent.WriteTmpFile(Path.Combine($"{BackupPath}\\{currentPlayer}_{DateTime.Now.Year}_{DateTime.Now.Month}_{DateTime.Now.Day}_{DateTime.Now.Hour}_{DateTime.Now.Minute}_{DateTime.Now.Second}".Split('\\')), IOEvent.InfoToByte(playerInfo[currentPlayer].Save()));
+		DateTime curTime = DateTime.Now;
+		IOEvent.WriteTmpFile(GlobalData.GetTruePath($"{BackupPath}\\{currentPlayer}_{curTime.Year}_{curTime.Month}_{curTime.Day}_{curTime.Hour}_{curTime.Minute}_{curTime.Second}"), IOEvent.InfoToByte(playerInfo[currentPlayer].Save()));
 		//Purge excess backups
 		string[] FileList = Directory.GetFiles(BackupPath);
-		List<Tuple<string, long>> Files = [];
+		List<(string Name, long UTC)> Files = [];
 		while (FileList.Length > 100)
 		{
 			foreach (string file in FileList)
 				Files.Add(new(file, File.GetCreationTimeUtc(file).ToFileTimeUtc()));
 			//Sort by UTC time
-			Files.Sort((x, y) => x.Item2.CompareTo(y.Item2));
-			File.Delete(Path.Combine(Files[0].Item1));
+			Files.Sort((x, y) => x.UTC.CompareTo(y.UTC));
+			File.Delete(Path.Combine(Files[0].Name));
 			FileList = Directory.GetFiles(BackupPath);
 			Files.Clear();
 		}
@@ -112,44 +111,47 @@ public static class PlayerManager
 	{
 		if (string.IsNullOrEmpty(currentPlayer))
 			return;
+		//Save user data
 		List<string> res = IOEvent.InfoToString(userSaveInfo[currentPlayer] = playerInfo[currentPlayer].Save());
-		string path = Path.Combine($"{GameStates.SavePath}\\Datas\\Users\\{currentPlayer}".Split('\\'));
+		string path = GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Users\\{currentPlayer}");
 		IOEvent.WriteTmpFile(path, IOEvent.StringToByte(res));
 #if DEBUG
 		string tmp = string.Empty;
 		int tabCount = 0;
-		lock (res)
+		foreach (string item in res)
 		{
-			foreach (string item in res)
+			tmp += item + "\n";
+			if (item.EndsWith('{'))
 			{
-				tmp += item + "\n";
-				if (item.EndsWith('{'))
-				{
-					tmp = tmp[..^2] + "\n";
-					for (int i = 0; i < tabCount; i++)
-						tmp += "\t";
-					tmp += "{\n";
-					tabCount++;
-				}
-				else if (item.EndsWith('}'))
-				{
-					tmp = tmp[..^3];
-					tmp += "}\n";
-					tabCount--;
-				}
+				tmp = tmp[..^2] + "\n";
 				for (int i = 0; i < tabCount; i++)
 					tmp += "\t";
+				tmp += "{\n";
+				tabCount++;
 			}
-			path = Path.Combine($"{GameStates.SavePath}\\Datas\\Users\\{currentPlayer} Data.txt".Split('\\'));
-			if (File.Exists(path))
-				File.Delete(path);
-			FileStream stream2 = new(path, FileMode.OpenOrCreate);
-			StreamWriter textWriter = new(stream2);
-			textWriter.Write(tmp);
-			textWriter.Flush();
-			stream2.Close();
+			else if (item.EndsWith('}'))
+			{
+				tmp = tmp[..^3];
+				tmp += "}\n";
+				tabCount--;
+			}
+			for (int i = 0; i < tabCount; i++)
+				tmp += "\t";
 		}
+		path = GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Users\\{currentPlayer} Data.txt");
+		if (File.Exists(path))
+			File.Delete(path);
+		using FileStream stream2 = new(path, FileMode.Create);
+		using StreamWriter textWriter = new(stream2);
+		textWriter.Write(tmp);
 #endif
+	}
+	public static void SaveSettings()
+	{
+		SaveInfo info = new("StartInfo->");
+		info.PushNext(Settings.Save());
+		info.PushNext(KeyBinds.Save());
+		IOEvent.WriteTmpFile(SettingsFilePath, IOEvent.InfoToByte(info));
 	}
 	/// <summary>
 	/// Stores the chart completion result for the current user
@@ -164,7 +166,10 @@ public static class PlayerManager
 			return;
 
 		User user = CurrentUser;
-		user.FinishedSong(songName, (SongSystem.Difficulty)difficulty, result);
+		SongData.SongState prevData = (user.GetSongData(songName)?.CurrentSongStates.TryGetValue((SongSystem.Difficulty)difficulty, out SongData.SongState dat) ?? false) ? dat : null;
+		int prevScore = prevData?.Score ?? 0;
+		float prevAcc = prevData?.Accuracy ?? 0;
+		user.FinishedSong(songName, (SongSystem.Difficulty)difficulty, result, prevScore, prevAcc);
 
 		float oldSkill = user.AbsoluteSkill;
 		user.UpdateSkill(user.CalculateRating());
@@ -192,7 +197,7 @@ public static class PlayerManager
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void Remove(string s)
 	{
-		File.Delete($"{GameStates.SavePath}\\Datas\\Users\\" + s + ".Tmpf");
+		File.Delete(GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Users\\{s}.Tmpf"));
 		_ = playerInfo.Remove(s);
 	}
 	/// <summary>
@@ -231,6 +236,24 @@ public static class PlayerManager
 	{
 		playerInfo.Add(currentPlayer = info.PlayerName, info);
 		Save();
+	}
+	public static void LoadUserData()
+	{
+		string[] files = Directory.GetFiles(GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Users"));
+		foreach (string s in files)
+		{
+			//Only load tmpf user files
+			if (!s.EndsWith(".Tmpf"))
+				continue;
+			//Get the username from the file path
+			string[] v = s.Split('\\');
+			string s2 = v[^1][..^5];
+			//Read user data and store it
+			SaveInfo i1 = FileIO.ReadFile(s[..^5]);
+			User user = new();
+			user.Load(i1);
+			playerInfo.Add(s2, user);
+		}
 	}
 	/// <summary>
 	/// The current user that is logged in

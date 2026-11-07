@@ -81,6 +81,7 @@ public interface IChampionShip
 /// </summary>
 public class WaveConstructor : GameObject
 {
+	internal static WaveConstructor instance;
 	/// <summary>
 	/// The list of loaded contents to dispose
 	/// </summary>
@@ -92,11 +93,33 @@ public class WaveConstructor : GameObject
 	/// <summary>
 	/// Whether the chart has multiple BPMs
 	/// </summary>
-	internal static bool _isMultiBPM = false;
+	public bool IsMultiBPM { get; internal set; } = false;
 	/// <summary>
 	/// The list of bpms and their durations
 	/// </summary>
-	private static (float beatCount, float bpm)[] _MultiBPM;
+	private (float beatCount, float bpm)[] _MultiBPM;
+	internal void AddBPMChange(float duration, float bpm)
+	{
+		_MultiBPM ??= [];
+		Array.Resize(ref _MultiBPM, _MultiBPM.Length + 1);
+		_MultiBPM[^1] = (duration, BeatCost(bpm));
+		Array.Resize(ref _MultiBPMChange, _MultiBPMChange.Length + 1);
+		_MultiBPMChange[^1] = duration + (_MultiBPMChange.Length > 1 ? _MultiBPMChange[^2] : 0);
+	}
+	/// <summary>
+	/// The minimal BPM of the chart
+	/// </summary>
+	public float MinBPM => 60 * 62.5f / (IsMultiBPM ? _MultiBPM.Min(s => s.bpm) : SingleBeat);
+	/// <summary>
+	/// The maximal BPM of the chart
+	/// </summary>
+	public float MaxBPM => 60 * 62.5f / (IsMultiBPM ? _MultiBPM.Max(s => s.bpm) : SingleBeat);
+	/// <summary>
+	/// Returns how many frames is required for a beat to pass
+	/// </summary>
+	/// <param name="bpm">The BPM to calculate</param>
+	/// <returns></returns>
+	private static float BeatCost(float bpm) => 62.5f / (bpm / 60f);
 	private static float[] _MultiBPMChange;
 	private int _curBPMStage = 0;
 	/// <summary>
@@ -106,9 +129,10 @@ public class WaveConstructor : GameObject
 	/// <param name="isBPM">Whether <paramref name="beatTime"/> is the BPM itself (Default false)</param>
 	public WaveConstructor(float beatTime, bool isBPM = false)
 	{
-		_isMultiBPM = false;
-		SingleBeat = isBPM ? (62.5f / (beatTime / 60f)) : beatTime;
+		IsMultiBPM = false;
+		SingleBeat = isBPM ? BeatCost(beatTime) : beatTime;
 		DelayEnabled = true;
+		instance = this;
 	}
 	/// <summary>
 	/// Initializes the wave data
@@ -116,17 +140,18 @@ public class WaveConstructor : GameObject
 	/// <param name="beats">Duration of each beat, [Beat Count, BPM]</param>
 	public WaveConstructor(params (float beatCount, float bpm)[] beats)
 	{
-		_isMultiBPM = true;
+		IsMultiBPM = true;
 		//Convert BPM into frames
 		_MultiBPMChange = new float[beats.Length];
 		for (int i = 0; i < beats.Length; ++i)
 		{
-			beats[i].bpm = 62.5f / (beats[i].bpm / 60f);
+			beats[i].bpm = BeatCost(beats[i].bpm);
 			_MultiBPMChange[i] = beats[i].beatCount + (i > 0 ? _MultiBPMChange[i - 1] : 0);
 		}
 		//Set initial BPM
 		SingleBeat = (_MultiBPM = beats)[0].bpm;
 		DelayEnabled = true;
+		instance = this;
 	}
 	/// <summary>
 	/// Duration of 1 beat
@@ -141,34 +166,34 @@ public class WaveConstructor : GameObject
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static float BeatTime(float x, bool fromStart = true)
 	{
-		if (_isMultiBPM)
+		if (!instance.IsMultiBPM)
+			goto Result;
+		if (fromStart)
 		{
-			if (fromStart)
+			float AccumulateFrames = 0;
+			foreach ((float beatCount, float bpm) in instance._MultiBPM)
 			{
-				float AccumulateFrames = 0;
-				foreach ((float beatCount, float bpm) in _MultiBPM)
+				if (x <= beatCount)
+					return AccumulateFrames + x * bpm;
+				else
 				{
-					if (x <= beatCount)
-						return AccumulateFrames + x * bpm;
-					else
-					{
-						AccumulateFrames += beatCount * bpm;
-						x -= beatCount;
-					}
-				}
-			}
-			else
-			{
-				float curBeat = CurrentFightingScene.Time.curBeat;
-				foreach ((float beatCount, float bpm) in _MultiBPM)
-				{
-					if (curBeat <= beatCount)
-						return x * bpm;
-					else
-						curBeat -= beatCount;
+					AccumulateFrames += beatCount * bpm;
+					x -= beatCount;
 				}
 			}
 		}
+		else
+		{
+			float curBeat = CurrentFightingScene.Time.curBeat;
+			foreach ((float beatCount, float bpm) in instance._MultiBPM)
+			{
+				if (curBeat <= beatCount)
+					return x * bpm;
+				else
+					curBeat -= beatCount;
+			}
+		}
+	Result:
 		return x * SingleBeat;
 	}
 	/// <summary>
@@ -177,7 +202,11 @@ public class WaveConstructor : GameObject
 	/// <param name="beat">The beat to check</param>
 	/// <returns>Whether the chart is currently at the given beat</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool InBeat(float beat) => GametimeF >= BeatTime(beat) && GametimeF < BeatTime(beat) + 0.5f;
+	public static bool InBeat(float beat)
+	{
+		float beatTime = BeatTime(beat);
+		return GametimeF >= beatTime && GametimeF < beatTime + 0.5f;
+	}
 	/// <summary>
 	/// Whether the chart is currently in the range of the given beats
 	/// </summary>
@@ -202,10 +231,10 @@ public class WaveConstructor : GameObject
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static bool AtKthBeat(float beatCount, float K)
 	{
-		if (!_isMultiBPM)
+		if (!instance.IsMultiBPM)
 			return (int)(GametimeF % BeatTime(beatCount) * 2) == (int)K * 2;
 		float AccumulateFrames = 0, curBeat = CurrentFightingScene.Time.curBeat;
-		foreach ((float bpmCount, float bpm) in _MultiBPM)
+		foreach ((float bpmCount, float bpm) in instance._MultiBPM)
 		{
 			if (curBeat <= bpmCount)
 				return (int)((GametimeF - AccumulateFrames) % bpm * 2) == (int)K * 2;
@@ -231,6 +260,22 @@ public class WaveConstructor : GameObject
 	/// <param name="action">The action to invoke</param>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void Delay(float delay, Action action) => DelayEventProcessor.AddInstantEvent(delay, action);
+	/// <summary>
+	/// Invokes an action after the given frames for a given duration (Using int calculation, recommended not to use)
+	/// </summary>
+	/// <param name="delay">The amount of frames to delay</param>
+	/// <param name="duration">The duration of the action</param>
+	/// <param name="action">The action to invoke</param>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static void DelayFor(float delay, float duration, Action action) => DelayEventProcessor.AddTimeRangedEvent(delay, action, duration, false);
+	/// <summary>
+	/// Invokes an action after the given frames for a given duration (Using float calculation, recommended to use)
+	/// </summary>
+	/// <param name="delay">The amount of frames to delay</param>
+	/// <param name="duration">The duration of the action</param>
+	/// <param name="action">The action to invoke</param>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static void DelayFor120(float delay, float duration, Action action) => DelayEventProcessor.AddTimeRangedEvent(delay, action, duration, true);
 	/// <summary>
 	/// Invokes an action for the next given beats (Using int calculation, recommended not to use)
 	/// </summary>
@@ -366,8 +411,8 @@ public class WaveConstructor : GameObject
 			if (!string.IsNullOrEmpty(info))
 			{
 				string cur = info;
-				foreach (KeyValuePair<string, int> pair in enums)
-					cur = cur.Replace("*" + pair.Key, pair.Value.ToString());
+				foreach ((string name, int val) in enums)
+					cur = cur.Replace("*" + name, val.ToString());
 				res.Add(cur);
 			}
 			return res;
@@ -395,6 +440,9 @@ public class WaveConstructor : GameObject
 		origin = origin[..tag];
 		return result.Split(',');
 	}
+	/// <summary>
+	/// List of characters that invoke an arrow attribute, the order of parsing is ~*_&lt;&gt;^!
+	/// </summary>
 	private static readonly Dictionary<char, ArrowAttribute> SpecialCharToAttribute = new()
 	{
 		['~'] = ArrowAttribute.Void,
@@ -445,17 +493,18 @@ public class WaveConstructor : GameObject
 		//Apply speed multiplication
 		if (speedPos != -1)
 			speedMul = tagPos > speedPos
-				? MathUtil.FloatFromString(origin[(speedPos + 1)..tagPos])
-				: MathUtil.FloatFromString(origin[(speedPos + 1)..]);
+				? origin[(speedPos + 1)..tagPos].ToFloat()
+				: origin[(speedPos + 1)..].ToFloat();
 		//Set tag
 		if (tagPos != -1)
 			tag = speedPos > tagPos ? origin[(tagPos + 1)..speedPos] : origin[(tagPos + 1)..];
 
-		int cut1 = speedPos;
-		if (cut1 == -1)
-			cut1 = tagPos;
-		else if (tagPos != -1)
-			cut1 = Math.Min(cut1, tagPos);
+		int cut1 = speedPos switch
+		{
+			-1 => tagPos,
+			_ when tagPos != -1 => Math.Min(speedPos, tagPos),
+			_ => speedPos
+		};
 		if (cut1 != -1)
 			origin = origin[..cut1];
 		//Arrow attributes
@@ -473,7 +522,7 @@ public class WaveConstructor : GameObject
 				arrowAttribute |= ArrowAttribute.ForceGreen;
 		}
 		origin = origin[curSpecialI..];
-		bool GB = origin[0] is '#' or '%', hasArrowInGB = origin[0] == '#';
+		bool hasArrowInGB = origin[0] == '#', GB = hasArrowInGB | origin[0] == '%';
 		string cut = string.Empty;
 		if (GB)
 		{
@@ -484,6 +533,7 @@ public class WaveConstructor : GameObject
 		}
 		if ((origin.Length == 1 || origin[1] != ' ') && (origin[0] is 'R' or 'D' or 'd'))
 			origin = $"{origin[0]} {origin[1..]}";
+		//Fill default '0's
 		if (origin.Length == 2)
 			origin += "00";
 		else if (origin.Length == 3)
@@ -495,7 +545,7 @@ public class WaveConstructor : GameObject
 			string way = origin[..2];
 			if (normalized && hasArrowInGB)
 				result.Add(arr = MakeArrow(shootShieldTime, way, speed * speedMul, origin[2] - '0', 0, arrowAttribute));
-			result.Add(new GreenSoulGB(shootShieldTime, hasArrowInGB ? "+0" : way, origin[2] - '0', BeatTime(MathUtil.FloatFromString(cut))) { AppearVolume = Settings.GBAppearVolume, ShootVolume = Settings.GBShootVolume, Follow = Settings.GBFollowing });
+			result.Add(new GreenSoulGB(shootShieldTime, hasArrowInGB ? "+0" : way, origin[2] - '0', BeatTime(cut.ToFloat())) { AppearVolume = Settings.GBAppearVolume, ShootVolume = Settings.GBShootVolume, Follow = Settings.GBFollowing });
 		}
 		else
 			result.Add(arr = MakeArrow(shootShieldTime, origin, speed * speedMul, origin[2] - '0', origin[3] - '0', arrowAttribute));
@@ -552,7 +602,7 @@ public class WaveConstructor : GameObject
 			string[] argStrings = args.Split(',');
 			float[] argsFloat = new float[argStrings.Length];
 			for (int i = 0; i < argsFloat.Length; i++)
-				argsFloat[i] = MathUtil.FloatFromString(argStrings[i]);
+				argsFloat[i] = argStrings[i].ToFloat();
 
 			if (delayMode)
 			{
@@ -709,25 +759,28 @@ public class WaveConstructor : GameObject
 	/// Optional Rotation Args: 0-> None, 1-> Reverse, 2-> Diagonal<br/>
 	/// GB：#xx#yz, Where "xx" means the duration beat, "y" beats direction, "z" means color, replace '#' with '%' if you don't want arrows<br/>
 	/// Combinations: "(R)(+0)", NOT "R(+0)"<br/>
-	/// Misc: use ' to multiply the speed of the arrow, &lt;&lt; or &gt;&gt; to adjust the current beat (>>0.5 will skip 0.5 beats)<br/>
 	/// Use <see cref="RegisterFunction(string, Action)"/> or <see cref="RegisterFunctionOnce(string, Action)"/> to declare functions to execute them inside here<br/>
 	/// For example RegisterFunctionOnce("func", ()=> {});<br/>
 	/// "(func)(R)", will invoke the action in "func" and creates an arrow<br/>
-	/// "!!X/Y", Each item will last 'Beat / 2X' beats (i.e. X = 2 then 1 beat is 4 items instead of the usual 8) for the next Y beats (If Y is undefined then it will last for the rest of the function)<br/>
-	/// You can add arguments in the form of "&lt;Arg1,Arg2...&gt;Action"<br/>
 	/// You may use <see cref="Arguments"/> inside the declared action in RegisterFunction(Once) to access them.<br/>
 	/// Adding '@' at the end or wrapping it in curly brackets would apply a tag to the arrow, i.e. "$0@E" or "$0{E}" would apply the tag "E" to the arrow
+	/// Use ' to multiply the speed of the arrow<br/>
+	/// * Use &lt;&lt; or &gt;&gt; to adjust the current beat (>>0.5 will skip 0.5 beats)<br/>
+	/// * "!!X/Y", Each item will last 'Beat / 2X' beats (i.e. X = 2 then 1 beat is 4 items instead of the usual 8) for the next Y beats (If Y is undefined then it will last for the rest of the function)<br/>
+	/// * Changing the speed of the arrows can be done by using "''X" where X is the new speed<br/>
+	/// The above instructions can only be called in one individual string command and does not count towards beat<br/>
+	/// You can add arguments in the form of "&lt;Arg1,Arg2...&gt;Action"<br/>
 	/// </summary>
 	/// <param name="Delay">The delay for the events to be executed, generally used for preventing spawning immediately within view</param>
 	/// <param name="Beat">Duration of 8 beats, generally used with <see cref="BeatTime(float, bool)"/></param>
 	/// <param name="arrowspeed">The speed of the arrows</param>
 	/// <param name="Barrage">The array of strings that contains the barrage</param>
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-	public void CreateChart(float Delay, float Beat, float arrowspeed, string[] Barrage)
+	public void CreateChart(float Delay, float Beat, float arrowspeed, IEnumerable<string> Barrage)
 	{
 		float t = Delay, effectLast = 0, currentCount = 4;
 		Arguments = [];
-		foreach (string cur in Barrage.AsSpan())
+		foreach (string cur in Barrage.ToArray().AsSpan())
 		{
 			if (cur.Length > 2)
 			{
@@ -737,27 +790,27 @@ public class WaveConstructor : GameObject
 					string str = cur[2..];
 					int pos = str.LastIndexOf('/');
 					if (pos == -1)
-						effectLast = currentCount = MathUtil.FloatFromString(str);
+						effectLast = currentCount = str.ToFloat();
 					else
 					{
-						currentCount = MathUtil.FloatFromString(str[..pos]);
+						currentCount = str[..pos].ToFloat();
 						effectLast = Convert.ToInt32(str[(pos + 1)..]);
 					}
 					continue;
 				}
 				else if (cur.StartsWith("\'\'"))
 				{
-					arrowspeed = MathUtil.FloatFromString(cur[2..]);
+					arrowspeed = cur[2..].ToFloat();
 					continue;
 				}
 				else if (cur.StartsWith("<<"))
 				{
-					t -= BeatTime(MathUtil.FloatFromString(cur[2..]));
+					t -= BeatTime(cur[2..].ToFloat());
 					continue;
 				}
 				else if (cur.StartsWith(">>"))
 				{
-					t += BeatTime(MathUtil.FloatFromString(cur[2..]));
+					t += BeatTime(cur[2..].ToFloat());
 					continue;
 				}
 			}
@@ -783,11 +836,11 @@ public class WaveConstructor : GameObject
 			removingActions.Clear();
 		}
 		//Set multiple BPM
-		if (_isMultiBPM && InBeat(_MultiBPMChange[_curBPMStage]))
+		if (IsMultiBPM && InBeat(_MultiBPMChange[_curBPMStage]))
 			SingleBeat = _MultiBPM[++_curBPMStage].bpm;
 	}
 	/// <summary>
-	/// Loads a file (Cross-platform, will auto dispose)
+	/// Loads a file (Cross-platform, will auto dispose when chart ends)
 	/// </summary>
 	/// <typeparam name="T">Content type</typeparam>
 	/// <param name="path">Path to file</param>
@@ -797,7 +850,7 @@ public class WaveConstructor : GameObject
 	public T LoadContent<T>(string path, ContentManager cm = null)
 	{
 		loadedContents.Add(path);
-		return DrawingLab.LoadContent<T>(path, cm);
+		return GlobalData.LoadContent<T>(path, cm);
 	}
 	/// <summary>
 	/// Loads an image (.bmp /.gif /.jpg /.png, will auto dispose)
@@ -828,7 +881,8 @@ public class WaveConstructor : GameObject
 	/// </summary>
 	public override void Dispose()
 	{
-		loadedContents.ForEach(Scene.Loader.UnloadAsset);
+		if (Scene.Loader != null)
+			loadedContents.ForEach(Scene.Loader.UnloadAsset);
 		loadedImages.ForEach(s => s.Dispose());
 		loadedContents.Clear();
 		loadedImages.Clear();
@@ -904,4 +958,16 @@ public abstract class SongInformation
 	/// The difficulties that are unlocked, if they are locked, the player cannot play them
 	/// </summary>
 	public virtual HashSet<Difficulty> UnlockedDifficulties => [Difficulty.Noob, Difficulty.Easy, Difficulty.Normal, Difficulty.Hard, Difficulty.Extreme, Difficulty.ExtremePlus];
+	/// <summary>
+	/// The condition for triggering an anomaly
+	/// </summary>
+	public virtual Func<bool> AnomalyCondition => () => false;
+	/// <summary>
+	/// The action to execute when the <see cref="AnomalyCondition"/> returns true
+	/// </summary>
+	public virtual Action AnomalyOnTrigger => null;
+	/// <summary>
+	/// The condition for the anomaly to have already been unlocked, the anomaly will be triggered when anomaly replay is enabled and this returns true
+	/// </summary>
+	public virtual Func<bool> AnomalyUnlockedCondition => () => false;
 }

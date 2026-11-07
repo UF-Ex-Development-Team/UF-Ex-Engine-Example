@@ -98,10 +98,41 @@ public struct DrawingData
 /// <param name="v3">The third vertex of the triangle</param>
 public struct Triangle(Vector2 v1, Vector2 v2, Vector2 v3) : IShape
 {
+#if NET10_0_OR_GREATER
 	/// <inheritdoc/>
-	public Vector2[] Vertices {
+	public Vector2[] Vertices
+	{
+		readonly get;
+		set
+		{
+			field = value;
+			//Cache computed values for optimization
+			A = (Vertices[1] - Vertices[0]).Length();
+			B = (Vertices[2] - Vertices[1]).Length();
+			C = (Vertices[0] - Vertices[2]).Length();
+			Semiperimeter = (A + B + C) / 2;
+			Inradius = float.Sqrt((Semiperimeter - A) * (Semiperimeter - B) * (Semiperimeter - C) / Semiperimeter);
+		}
+	} = [v1, v2, v3];
+	/// <inheritdoc/>
+	public float Rotation
+	{
+		readonly get;
+		set
+		{
+			field = value;
+			Vertices[0].RotateAround(Incenter, field);
+			Vertices[1].RotateAround(Incenter, field);
+			Vertices[2].RotateAround(Incenter, field);
+		}
+	}
+#else
+	/// <inheritdoc/>
+	public Vector2[] Vertices
+	{
 		readonly get => _vertices;
-		set	{
+		set
+		{
 			_vertices = value;
 			//Cache computed values for optimization
 			A = (Vertices[1] - Vertices[0]).Length();
@@ -111,8 +142,7 @@ public struct Triangle(Vector2 v1, Vector2 v2, Vector2 v3) : IShape
 			Inradius = float.Sqrt((Semiperimeter - A) * (Semiperimeter - B) * (Semiperimeter - C) / Semiperimeter);
 		}
 	}
-	private Vector2[] _vertices { get; set; } = [v1, v2, v3];
-	private float _rotation;
+	private Vector2[] _vertices = [v1, v2, v3];
 	/// <inheritdoc/>
 	public float Rotation
 	{
@@ -125,6 +155,8 @@ public struct Triangle(Vector2 v1, Vector2 v2, Vector2 v3) : IShape
 			Vertices[2].RotateAround(Incenter, _rotation);
 		}
 	}
+	private float _rotation;
+#endif
 	/// <inheritdoc/>
 	public DrawingData DrawData { get; set; } = new();
 	/// <inheritdoc/>
@@ -181,7 +213,7 @@ public struct Triangle(Vector2 v1, Vector2 v2, Vector2 v3) : IShape
 			//If any of the lines are within range of the circle, it is intersecting
 			//For it to intersect, the line must be not contained by the circle, so distance < radius and both ends not simultaneously inscribed
 			for (int i = 0; i < 3; i++)
-				if (DistanceToLine(circ.Center, Vertices[i], Vertices[(i + 1) % 3]) < circ.Radius && ((Vertices[i] - circ.Center).Length() > circ.Radius || (Vertices[(i + 1) % 3] - circ.Center).Length() > circ.Radius))
+				if (circ.Center.DistanceToLine(Vertices[i], Vertices[(i + 1) % 3]) < circ.Radius && ((Vertices[i] - circ.Center).Length() > circ.Radius || (Vertices[(i + 1) % 3] - circ.Center).Length() > circ.Radius))
 					return true;
 			//If the circle is the inscribed circle, it is intersecting. If not, then there are no more cases to compare
 			return circ.Center == Incenter && circ.Radius == Inradius;
@@ -273,19 +305,34 @@ public struct Rectangle : IShape
 	public Rectangle(Vector2 TopLeft, Vector2 TopRight, Vector2 BottomRight, Vector2 BottomLeft) => Vertices = [TopLeft, TopRight, BottomRight, BottomLeft];
 	/// <inheritdoc/>
 	public Vector2[] Vertices { get; set; }
-	private float _rotation;
+#if NET10_0_OR_GREATER
+	/// <inheritdoc/>
+	public float Rotation
+	{
+		readonly get; set
+		{
+			field = value;
+			Vertices[0].RotateAround(Center, value);
+			Vertices[1].RotateAround(Center, value);
+			Vertices[2].RotateAround(Center, value);
+			Vertices[3].RotateAround(Center, value);
+		}
+	}
+#else
 	/// <inheritdoc/>
 	public float Rotation
 	{
 		readonly get => _rotation; set
 		{
 			_rotation = value;
-			Vertices[0].RotateAround(Center, _rotation);
-			Vertices[1].RotateAround(Center, _rotation);
-			Vertices[2].RotateAround(Center, _rotation);
-			Vertices[3].RotateAround(Center, _rotation);
+			Vertices[0].RotateAround(Center, value);
+			Vertices[1].RotateAround(Center, value);
+			Vertices[2].RotateAround(Center, value);
+			Vertices[3].RotateAround(Center, value);
 		}
 	}
+	private float _rotation;
+#endif
 	/// <inheritdoc/>
 	public DrawingData DrawData { get; set; } = new();
 	/// <inheritdoc/>
@@ -304,8 +351,8 @@ public struct Rectangle : IShape
 				InTriangle(Vertices[0], Vertices[1], Vertices[2], circ.Center) && InTriangle(Vertices[1], Vertices[2], Vertices[0], circ.Center) &&
 				//and the distance to all the lines are more than the radius, it is contained
 				float.Min(
-					float.Min(DistanceToLine(circ.Center, Vertices[0], Vertices[1]), DistanceToLine(circ.Center, Vertices[1], Vertices[2])),
-					float.Min(DistanceToLine(circ.Center, Vertices[2], Vertices[3]), DistanceToLine(circ.Center, Vertices[3], Vertices[0]))
+					float.Min(circ.Center.DistanceToLine(Vertices[0], Vertices[1]), circ.Center.DistanceToLine(Vertices[1], Vertices[2])),
+					float.Min(circ.Center.DistanceToLine(Vertices[2], Vertices[3]), circ.Center.DistanceToLine(Vertices[3], Vertices[0]))
 				) < circ.Radius;
 		}
 		return false;
@@ -335,7 +382,7 @@ public struct Rectangle : IShape
 		{
 			//For it to intersect, the line must be not contained by the circle, so distance < radius and both ends not simultaneously inscribed
 			for (int i = 0; i < 4; i++)
-				if (DistanceToLine(circ.Center, Vertices[i], Vertices[(i + 1) % 4]) < circ.Radius && ((Vertices[i] - circ.Center).Length() > circ.Radius || (Vertices[(i + 1) % 4] - circ.Center).Length() > circ.Radius))
+				if (circ.Center.DistanceToLine(Vertices[i], Vertices[(i + 1) % 4]) < circ.Radius && ((Vertices[i] - circ.Center).Length() > circ.Radius || (Vertices[(i + 1) % 4] - circ.Center).Length() > circ.Radius))
 					return true;
 		}
 		return false;
@@ -426,13 +473,16 @@ public struct Circle : IShape
 	public vec2[] Vertices { get; set; }
 	/// <inheritdoc/>
 	public float Rotation { readonly get; set; } = 0;
-	private int _resolution;
 	/// <summary>
 	/// The rendering resolution of the circle
 	/// </summary>
 	public int Resolution
 	{
+#if NET10_0_OR_GREATER
+		readonly get; set
+#else
 		readonly get => _resolution; set
+#endif
 		{
 			//If it is an increase of resolution, create new information
 			if (value > Resolution)
@@ -489,9 +539,16 @@ public struct Circle : IShape
 					DrawData.BlendArray[i] = OldBlend[(int)(i * (float)Resolution / value)];
 				}
 			}
+#if NET10_0_OR_GREATER
+			field = value;
+#else
 			_resolution = value;
+#endif
 		}
 	}
+#if !NET10_0_OR_GREATER
+	private int _resolution;
+#endif
 	/// <inheritdoc/>
 	public DrawingData DrawData { get; set; } = new();
 	/// <summary>
@@ -527,7 +584,7 @@ public struct Circle : IShape
 		{
 			for (int i = 0; i < Resolution; i++)
 			{
-				DrawingLab.DrawLineColors(Center + GetVector2(Radius, Rotation + i * 360 / Resolution),Center + GetVector2(Radius, Rotation + (i + 1) * 360 / Resolution), DrawData.Width, [DrawData.BlendArray[(i + 1) % Resolution], DrawData.BlendArray[i], DrawData.BlendArray[i], DrawData.BlendArray[(i + 1) % Resolution]], DrawData.Depth);
+				DrawingLab.DrawLineColors(Center + GetVector2(Radius, Rotation + i * 360 / Resolution), Center + GetVector2(Radius, Rotation + (i + 1) * 360 / Resolution), DrawData.Width, [DrawData.BlendArray[(i + 1) % Resolution], DrawData.BlendArray[i], DrawData.BlendArray[i], DrawData.BlendArray[(i + 1) % Resolution]], DrawData.Depth);
 			}
 		}
 		else if (DrawData.DrawingMode == DrawingData.DrawMode.Filled)

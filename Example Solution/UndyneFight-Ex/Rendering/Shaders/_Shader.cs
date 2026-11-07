@@ -16,13 +16,36 @@ public class Shader()
 	/// Loads a shader in the given path
 	/// </summary>
 	/// <param name="path">The path of the shader</param>
-	public Shader(string path) : this() => effect = GlobalResources.LoadContent<Effect>(path, Scene.Loader);
+	public Shader(string path) : this() => effect = GlobalData.LoadContent<Effect>(path, Scene.Loader);
 	private readonly Effect effect;
-	private string effectName = "NormalDrawing";
+#if NET10_0_OR_GREATER
 	/// <summary>
 	/// The name of the effect used within the shader
 	/// </summary>
-	public string EffectName { get => effectName; set { effectName = value; effect.CurrentTechnique = effect.Techniques[value]; } }
+	public string EffectName
+	{
+		get;
+		set
+		{
+			field = value;
+			effect.CurrentTechnique = effect.Techniques[value];
+		}
+	} = "NormalDrawing";
+#else
+	/// <summary>
+	/// The name of the effect used within the shader
+	/// </summary>
+	public string EffectName
+	{
+		get => _effectName;
+		set
+		{
+			_effectName = value;
+			effect.CurrentTechnique = effect.Techniques[value];
+		}
+	}
+	private string _effectName = "NormalDrawing";
+#endif
 	/// <summary>
 	/// The parameters of the shader
 	/// </summary>
@@ -45,40 +68,40 @@ public class Shader()
 	/// <param name="vals">A KeyValuePair of the name of the parameter and the value</param>
 	public void SetParameters(params KeyValuePair<string, object>[] vals)
 	{
-		foreach (KeyValuePair<string, object> kvp in vals)
+		foreach ((string key, object value) in vals)
 		{
 			//A table is all I can think of to automatically convert all available
 			//SetValue types
-			if (kvp.Value is float flt)
-				effect.Parameters[kvp.Key].SetValue(flt);
-			else if (kvp.Value is float[] fltarr)
-				effect.Parameters[kvp.Key].SetValue(fltarr);
-			else if (kvp.Value is int inte)
-				effect.Parameters[kvp.Key].SetValue(inte);
-			else if (kvp.Value is int[] intearr)
-				effect.Parameters[kvp.Key].SetValue(intearr);
-			else if (kvp.Value is bool bl)
-				effect.Parameters[kvp.Key].SetValue(bl);
-			else if (kvp.Value is Matrix mtx)
-				effect.Parameters[kvp.Key].SetValue(mtx);
-			else if (kvp.Value is Matrix[] mtxarr)
-				effect.Parameters[kvp.Key].SetValue(mtxarr);
-			else if (kvp.Value is Quaternion quat)
-				effect.Parameters[kvp.Key].SetValue(quat);
-			else if (kvp.Value is Texture tex)
-				effect.Parameters[kvp.Key].SetValue(tex);
-			else if (kvp.Value is Vector2 vec2)
-				effect.Parameters[kvp.Key].SetValue(vec2);
-			else if (kvp.Value is Vector2[] vec2arr)
-				effect.Parameters[kvp.Key].SetValue(vec2arr);
-			else if (kvp.Value is Vector3 vec3)
-				effect.Parameters[kvp.Key].SetValue(vec3);
-			else if (kvp.Value is Vector3[] vec3arr)
-				effect.Parameters[kvp.Key].SetValue(vec3arr);
-			else if (kvp.Value is Vector4 vec4)
-				effect.Parameters[kvp.Key].SetValue(vec4);
-			else if (kvp.Value is Vector4[] vec4arr)
-				effect.Parameters[kvp.Key].SetValue(vec4arr);
+			if (value is float flt)
+				effect.Parameters[key].SetValue(flt);
+			else if (value is float[] fltarr)
+				effect.Parameters[key].SetValue(fltarr);
+			else if (value is int inte)
+				effect.Parameters[key].SetValue(inte);
+			else if (value is int[] intearr)
+				effect.Parameters[key].SetValue(intearr);
+			else if (value is bool bl)
+				effect.Parameters[key].SetValue(bl);
+			else if (value is Matrix mtx)
+				effect.Parameters[key].SetValue(mtx);
+			else if (value is Matrix[] mtxarr)
+				effect.Parameters[key].SetValue(mtxarr);
+			else if (value is Quaternion quat)
+				effect.Parameters[key].SetValue(quat);
+			else if (value is Texture tex)
+				effect.Parameters[key].SetValue(tex);
+			else if (value is Vector2 vec2)
+				effect.Parameters[key].SetValue(vec2);
+			else if (value is Vector2[] vec2arr)
+				effect.Parameters[key].SetValue(vec2arr);
+			else if (value is Vector3 vec3)
+				effect.Parameters[key].SetValue(vec3);
+			else if (value is Vector3[] vec3arr)
+				effect.Parameters[key].SetValue(vec3arr);
+			else if (value is Vector4 vec4)
+				effect.Parameters[key].SetValue(vec4);
+			else if (value is Vector4[] vec4arr)
+				effect.Parameters[key].SetValue(vec4arr);
 		}
 	}
 	/// <summary>
@@ -92,7 +115,7 @@ public class Shader()
 	public void Update()
 	{
 		StableEvents?.Invoke(this);
-		if (PartEvents?.TryGetValue(effectName, out Action<Effect> value) ?? false)
+		if (PartEvents?.TryGetValue(EffectName, out Action<Effect> value) ?? false)
 			value(effect);
 	}
 	/// <summary>

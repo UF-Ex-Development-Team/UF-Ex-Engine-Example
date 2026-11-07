@@ -107,9 +107,9 @@ public abstract class Enemy : Entity
 			if (appearTime < 0)
 				return;
 			Depth = 0.5f;
-			FormalDraw(Sprites.pixUnit, collidingBox.ToRectangle(), Color.Red);
+			GeneralDraw(Sprites.pixUnit, collidingBox.Centre, Color.Red, collidingBox.Size);
 			Depth = 0.501f;
-			FormalDraw(Sprites.pixUnit, currentHPBar.ToRectangle(), Color.Lime);
+			GeneralDraw(Sprites.pixUnit, currentHPBar.Centre, Color.Lime, currentHPBar.Size);
 		}
 
 		public override void Update()

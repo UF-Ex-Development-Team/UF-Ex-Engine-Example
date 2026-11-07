@@ -62,9 +62,10 @@ internal class CheatDetector : Entity
 	}
 	private class ProcessDetector : GameObject
 	{
+		private int Timer = 0;
 		public override void Update()
 		{
-			if ((DateTime.Now.Second % 15) != 0)
+			if ((Timer++ % 900) != 0)
 				return;
 			foreach (Process item in Process.GetProcesses())
 			{

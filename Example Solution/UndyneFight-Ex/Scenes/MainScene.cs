@@ -1,4 +1,5 @@
 ﻿using UndyneFight_Ex.GameInterface;
+using UndyneFight_Ex.Server;
 using UndyneFight_Ex.SongSystem;
 
 namespace UndyneFight_Ex.Entities;
@@ -32,7 +33,8 @@ internal class TryAgainScene : Scene
 	public override void Draw()
 	{
 		base.Draw();
-		GeneralDraw(GameStates.GameoverBackground, new Vector2(320, 240), Color.White * alpha, new Vector2(640, 480) / GameStates.GameoverBackground.Bounds.Size.ToVector2());
+		if (!OverallNetManager.IsSuccessfullyConnected)
+			GeneralDraw(GameStates.GameoverBackground, new Vector2(320, 240), Color.White * alpha, new Vector2(640, 480) / GameStates.GameoverBackground.Bounds.Size.ToVector2());
 	}
 }
 internal class WinScene(StateShower ss, Player.Analyzer analyzer) : Scene(UFEXSettings.SongCompleteCreate(ss, analyzer)) { }

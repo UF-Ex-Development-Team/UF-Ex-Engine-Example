@@ -9,6 +9,25 @@ public struct Protected<T>
 	/// Whether the data was hacked
 	/// </summary>
 	public bool Hacked { get; private set; }
+#if NET10_0_OR_GREATER
+	/// <summary>
+	/// The value of the protected data
+	/// </summary>
+	public T Value
+	{
+		get
+		{
+			if (field.GetHashCode() != hash)
+				Hacked = true;
+			return field;
+		}
+		set
+		{
+			field = value;
+			hash = value.GetHashCode();
+		}
+	}
+#else
 	private T value;
 	/// <summary>
 	/// The value of the protected data
@@ -27,6 +46,7 @@ public struct Protected<T>
 			hash = value.GetHashCode();
 		}
 	}
+#endif
 	private int hash;
 	/// <summary>
 	/// Converts the value of the data to the desired type

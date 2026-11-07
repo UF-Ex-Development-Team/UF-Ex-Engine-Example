@@ -71,16 +71,7 @@ internal partial class StateShower
 					PushSelection(new ReTry(s.wave));
 
 				PushSelection(new GiveUp());
-				DiffText = Localization.GetText($"Difficulty[{difficulty}]");
-				DiffCol = difficulty switch
-				{
-					0 => Color.White,
-					1 => Color.LawnGreen,
-					2 => Color.LightBlue,
-					3 => Color.MediumPurple,
-					4 => Color.Orange,
-					_ => Color.Gray
-				};
+				(DiffText, DiffCol) = DefaultValues.DifficultyTypes[difficulty].Data;
 			}
 			public override void Update()
 			{
@@ -95,14 +86,11 @@ internal partial class StateShower
 			{
 				GLFont NormalFont = Localization.GetFont("NormalFont");
 				//Background drawing
-				Depth -= 0.01f;
-				CollideRect Normal = new(0, 0, 640, 480);
-				FormalDraw(GameoverBackground, Normal, Color.White * (blurIntensity / 100f) * 0.2f);
-				Depth += 0.01f;
+				GeneralDraw(GameoverBackground, new Vector2(320, 240), Color.White * (blurIntensity / 100f) * 0.2f, new Vector2(640f / GameoverBackground.Width, 480f / GameoverBackground.Height), depth: Depth - 0.01f);
 				//Draw name
 				if (!IsInChallenge && lastParam is not null)
 				{
-					string ChartDiff = lastParam.Waveset.Attributes.ComplexDifficulty.ContainsKey((Difficulty)difficulty) ? MathUtil.FloatToString(lastParam.Waveset.Attributes.ComplexDifficulty[(Difficulty)difficulty]) : "?";
+					string ChartDiff = lastParam.Waveset.Attributes.ComplexDifficulty.ContainsKey((Difficulty)difficulty) ? MathUtil.FloatToString(lastParam.Waveset.Attributes.ComplexDifficulty[(Difficulty)difficulty], 1) : "?";
 					NormalFont.CentreDraw($"{GlobalData.GetWavesetDisplayName(lastParam.Waveset)}", new Vector2(320, 30), Color.White, 1, 0.1f);
 					NormalFont.CentreDraw($"{GlobalData.ChartDifficultyNames[lastParam.Waveset.FightName][(Difficulty)difficulty]} {ChartDiff}", new Vector2(320, 60), DiffCol, 1, 0.1f);
 				}
@@ -120,13 +108,17 @@ internal partial class StateShower
 				if (instance == null)
 					return;
 				Localization.DrawLocalizedText("ResultScreen.MaxCombo", new Vector2(40, detailY + 10), [instance.maxCombo], depth: 0.1f);
-				Localization.DrawLocalizedText("ChartJudgement.Miss", new Vector2(40, detailY + 40), color: Color.Red, depth: 0.1f);
+				(string scoreName, Color scoreColor) = DefaultValues.ScoreTypes[(int)DefaultValues.ScoreType.Miss].Data;
+				NormalFont.Draw(scoreName, new Vector2(40, detailY + 40), scoreColor, 1, 0.1f);
 				NormalFont.Draw(instance.miss.ToString(), new Vector2(40, detailY + 70), Color.White, 1, 0.1f);
-				Localization.DrawLocalizedText("ChartJudgement.Okay", new Vector2(190, detailY + 40), color: Color.Green, depth: 0.1f);
+				(scoreName, scoreColor) = DefaultValues.ScoreTypes[(int)DefaultValues.ScoreType.Okay].Data;
+				NormalFont.Draw(scoreName, new Vector2(190, detailY + 40), scoreColor, 1, 0.1f);
 				NormalFont.Draw(instance.okay.ToString(), new Vector2(190, detailY + 70), Color.White, 1, 0.1f);
-				Localization.DrawLocalizedText("ChartJudgement.Nice", new Vector2(330, detailY + 40), color: Color.LightBlue, depth: 0.1f);
+				(scoreName, scoreColor) = DefaultValues.ScoreTypes[(int)DefaultValues.ScoreType.Nice].Data;
+				NormalFont.Draw(scoreName, new Vector2(330, detailY + 40), scoreColor, 1, 0.1f);
 				NormalFont.Draw(instance.nice.ToString(), new Vector2(330, detailY + 70), Color.White, 1, 0.1f);
-				Localization.DrawLocalizedText("ChartJudgement.Perfect", new Vector2(480, detailY + 40), color: Color.Gold, depth: 0.1f);
+				(scoreName, scoreColor) = DefaultValues.ScoreTypes[(int)DefaultValues.ScoreType.Perfect].Data;
+				NormalFont.Draw(scoreName, new Vector2(480, detailY + 40), scoreColor, 1, 0.1f);
 				NormalFont.Draw(instance.perfect.ToString(), new Vector2(480, detailY + 70), Color.White, 1, 0.1f);
 				Localization.DrawLocalizedText("ResultScreen.EarlyLateShort", new Vector2(480, detailY + 100), [instance.perfectE, instance.perfectL], color: Color.Orange, scale: new(0.75f), depth: 0.1f);
 

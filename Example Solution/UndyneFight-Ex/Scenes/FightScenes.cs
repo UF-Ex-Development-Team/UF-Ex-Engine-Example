@@ -1,4 +1,5 @@
-﻿using UndyneFight_Ex.SongSystem;
+﻿using UndyneFight_Ex.Server;
+using UndyneFight_Ex.SongSystem;
 using static UndyneFight_Ex.GameStates;
 
 namespace UndyneFight_Ex.Entities;
@@ -45,11 +46,15 @@ public abstract class FightScene : Scene
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void PlayDeath()
 	{
-		Fight.Functions.ResetBarrage();
+		if (!OverallNetManager.IsSuccessfullyConnected)
+		{
+			_ = GameMain.instance.SetGameoverScreen();
+			Fight.Functions.ResetBarrage();
+		}
 		PlayerDied();
-
 		Achievements.AchievementManager.CheckUserAchievements();
-		GameStates.InstanceCreate(new Player.BrokenHeart());
+		if (!OverallNetManager.IsSuccessfullyConnected)
+			GameStates.InstanceCreate(new Player.BrokenHeart());
 	}
 	/// <summary>
 	/// The event to invoke when the player dies
@@ -61,13 +66,12 @@ public abstract class FightScene : Scene
 		if (stopTime > 0.01f)
 			goto A;
 		GasterBlaster.shootSoundPlayed = GasterBlaster.spawnSoundPlayed = Pike.shootSoundPlayed = Pike.spawnSoundPlayed = false;
-		GameObject[] objs = [.. Objects];
-		Player.Heart[] hearts = [.. Player.hearts];
-		foreach (ICollideAble entity in objs.OfType<ICollideAble>())
-			foreach (Player.Heart heart in hearts)
-				if (heart.SoulType != 1)
-					entity.GetCollide(heart);
-		A:
+		ICollideAble[] objs = [.. Objects.Where(obj => obj is ICollideAble).Cast<ICollideAble>()];
+		Player.Heart[] collidableHearts = [.. Player.hearts.Where(soul => soul.SoulType != 1)];
+		foreach (Player.Heart heart in collidableHearts)
+			foreach (ICollideAble entity in objs)
+				entity.GetCollide(heart);
+	A:
 		base.Update();
 	}
 }

@@ -31,7 +31,7 @@ public static class GameStartUp
 	public static void AddMainSongs(List<Type> fights)
 	{
 		MainGameFights.AddRange(fights);
-		GameMain.fights.AddRange(fights);
+		GameMain.FightList.AddRange(fights);
 		FightSystem.Initialize(fights);
 	}
 	/// <summary>
@@ -69,7 +69,7 @@ public static class GameStartUp
 	/// </summary>
 	public static void StartGame()
 	{
-		GameMain.fights = MainGameFights;
+		GameMain.FightList = MainGameFights;
 		using GameMain game = new();
 		game.Run();
 	}

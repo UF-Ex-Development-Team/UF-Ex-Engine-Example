@@ -40,22 +40,25 @@ float4 localToColor(sampler2D samplerTexture, float2 Position)
 float MappingToDistribution(float len)
 {
 	float sig = max(iSigma2, 0.001f);
-	return exp(-len * len * 0.5 / sig) * 0.5 / (PI * sig);
+	return exp(-len * len / (2. * sig)) / (2. * PI * sig);
 }
 
 float4 MainPS(VertexShaderOutput input) : COLOR
 {
-	float InitialValueSum = MappingToDistribution(0.);
+	float baseMap = MappingToDistribution(0.);
+	float InitialValueSum = baseMap;
 	for (float i = 1; i <= RADIUS; i++)
 		InitialValueSum += MappingToDistribution(i) * 2.;
 	
-	float4 color = localToColor(SpriteTextureSampler, input.TextureCoordinates * SIZESURFACE) * MappingToDistribution(0.) / InitialValueSum;
+	float2 texcoord = input.TextureCoordinates * SIZESURFACE;
+	
+	float4 color = localToColor(SpriteTextureSampler, texcoord) * baseMap / InitialValueSum;
 	for (i = 1; i <= RADIUS; i++)
 	{
 		float avg_map = MappingToDistribution(i) / InitialValueSum;
 		float2 delta = iFactor * i;
-		color += localToColor(SpriteTextureSampler, input.TextureCoordinates * SIZESURFACE + delta) * avg_map;
-		color += localToColor(SpriteTextureSampler, input.TextureCoordinates * SIZESURFACE - delta) * avg_map;
+		color += localToColor(SpriteTextureSampler, texcoord + delta) * avg_map;
+		color += localToColor(SpriteTextureSampler, texcoord - delta) * avg_map;
 	}
 	return input.Color * saturate(color);
 }

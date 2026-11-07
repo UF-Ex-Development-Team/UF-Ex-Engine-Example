@@ -353,11 +353,7 @@ public abstract class RenderProduction : IComparable<RenderProduction>
 	/// <summary>
 	/// The list of helper targets you can use to copy the rendered texture
 	/// </summary>
-	protected static List<RenderTarget2D> HelperTargets { private set; get; } = [
-			new(WindowDevice, 640, 480, false, SurfaceFormat.Color, DepthFormat.None),
-			new(WindowDevice, 640, 480, false, SurfaceFormat.Color, DepthFormat.None),
-			new(WindowDevice, 640, 480, false, SurfaceFormat.Color, DepthFormat.None)
-		];
+	protected internal static List<RenderTarget2D> HelperTargets { protected get; set; }
 	/// <summary>
 	/// Creates a new helper target
 	/// </summary>
@@ -388,6 +384,10 @@ public abstract class RenderProduction : IComparable<RenderProduction>
 public class Surface : RenderProduction
 {
 	/// <summary>
+	/// The name of the surface
+	/// </summary>
+	public string Name { get; }
+	/// <summary>
 	/// The alpha of the surface
 	/// </summary>
 	public float drawingAlpha { get; set; } = 1;
@@ -395,24 +395,6 @@ public class Surface : RenderProduction
 	/// The area of the surface to restrict in
 	/// </summary>
 	public BoxVertex[] RestrictArea = [];
-	internal static readonly BlendState bm_subtract = new()
-	{
-		ColorSourceBlend = Blend.One,
-		AlphaSourceBlend = Blend.One,
-		ColorDestinationBlend = Blend.One,
-		AlphaDestinationBlend = Blend.One,
-		ColorBlendFunction = BlendFunction.ReverseSubtract,
-		AlphaBlendFunction = BlendFunction.ReverseSubtract
-	};
-
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal static void Initialize()
-	{
-		Normal = new("normal") { BlendState = BlendState.AlphaBlend, SpriteSortMode = SpriteSortMode.FrontToBack, Transfer = TransferUse.ForceNormal };
-		Subtractive = new("subtractive") { BlendState = bm_subtract, SpriteSortMode = SpriteSortMode.FrontToBack, Transfer = TransferUse.ForceNormal };
-		Hidden = new("hidden", true) { BlendState = BlendState.AlphaBlend, SpriteSortMode = SpriteSortMode.FrontToBack, BackGroundColor = Color.Black };
-	}
-	/// <summary>
 	/// Creates a surface (Note that this does not add the surface to the rendering pipeline)
 	/// </summary>
 	/// <param name="name">The name of the surface</param>
@@ -420,7 +402,32 @@ public class Surface : RenderProduction
 	public Surface(string name, bool lockSize = false) : base(null, SpriteSortMode.Deferred, null, 0.0f)
 	{
 		Name = name;
+		CustomSize = DefaultSize;
 		RenderPaint = (SizeLock = lockSize) ? new RenderTarget2D(WindowDevice, (int)ScreenSize.X, (int)ScreenSize.Y) : new RenderTarget2D(WindowDevice, (int)(480 * GameMain.Aspect * GameStates.SurfaceScale), (int)(480 * GameStates.SurfaceScale));
+	}
+	/// <summary>
+	/// Creates a custom surface
+	/// </summary>
+	/// <param name="name">The ID of the surface</param>
+	/// <param name="width">The width of the surface</param>
+	/// <param name="height">The height of the surface</param>
+	/// <param name="depth">The depth of the surface</param>
+	/// <param name="msaaCount">The multisampling count of the surface (Default max)</param>
+	public Surface(string name, int width, int height, float depth = 0, int msaaCount = 16) : base(null, SpriteSortMode.Deferred, null, depth)
+	{
+		Name = name;
+		CustomSize = new(width, height);
+		RenderPaint = new RenderTarget2D(WindowDevice, width, height, false, SurfaceFormat.Color, DepthFormat.None, msaaCount, RenderTargetUsage.DiscardContents);
+		drawHelper = new DrawHelper() { controlLayer = this };
+		GameStates.CurrentScene.InstanceCreate(drawHelper);
+	}
+	private Vector2 CustomSize;
+	public static implicit operator RenderTarget2D(Surface s) => s.RenderPaint;
+	private readonly DrawHelper drawHelper;
+	private class DrawHelper : Entity
+	{
+		public override void Update() { }
+		public override void Draw() => controlLayer.Render?.Invoke();
 	}
 	/// <summary>
 	/// Disposes the surface
@@ -470,19 +477,6 @@ public class Surface : RenderProduction
 	/// </summary>
 	public RenderTarget2D RenderPaint { get; private set; }
 	/// <summary>
-	/// The surface for drawing on screen
-	/// </summary>
-	public static Surface Normal { get; private set; }
-	/// <summary>
-	/// The surface for drawing inside the box
-	/// </summary>
-	public static Surface Hidden { get; private set; }
-	/// <summary>
-	/// Subtractive blendmode surface
-	/// </summary>
-	public static Surface Subtractive { get; set; }
-	internal static readonly Surface[] internalSurfaces = [Normal, Hidden, Subtractive];
-	/// <summary>
 	/// The color of the background
 	/// </summary>
 	public Color BackGroundColor { get; set; } = Color.Transparent;
@@ -494,6 +488,7 @@ public class Surface : RenderProduction
 	/// Custom update logic
 	/// </summary>
 	public event Action DoUpdate;
+	public event Action Render;
 	/// <summary>
 	/// Updates the surface
 	/// </summary>
@@ -501,7 +496,7 @@ public class Surface : RenderProduction
 	{
 		DoUpdate?.Invoke();
 		Vector4 extending = DisableExpand ? Vector4.Zero : GameStates.CurrentScene.CurrentDrawingSettings.Extending;
-		Vector2 size = !SizeLock ? AdaptedSize : new Vector2(480 * GameMain.Aspect, 480) * GameStates.SurfaceScale;
+		Vector2 size = !SizeLock ? AdaptedSize * CustomSize / DefaultSize : CustomSize * GameStates.SurfaceScale;
 		int missionX = (int)size.X, missionY = (int)(size.Y * (1 + extending.W));
 		if (RenderPaint.Bounds.Size != new Point(missionX, missionY))
 		{
@@ -509,6 +504,11 @@ public class Surface : RenderProduction
 			RenderPaint = new RenderTarget2D(WindowDevice, missionX, missionY);
 		}
 	}
+	private static readonly Vector2 DefaultSize = new(640, 480);
+	/// <summary>
+	/// The displacement of the surface when rendering
+	/// </summary>
+	public Vector2 Displacement = Vector2.Zero;
 	/// <summary>
 	/// Options on how the surfaces handles the local matrix
 	/// </summary>
@@ -536,10 +536,6 @@ public class Surface : RenderProduction
 	/// </summary>
 	public TransferUse Transfer { private get; set; } = TransferUse.Custom;
 	/// <summary>
-	/// The world matrix
-	/// </summary>
-	public static Matrix NormalTransfer { get; private set; }
-	/// <summary>
 	/// The custom matrix to apply on the surface (Requires <see cref="Transfer"/> to be <see cref="TransferUse.Custom"/>
 	/// </summary>
 	public Matrix CustomMatrix { get; set; } = Matrix.Identity;
@@ -563,10 +559,62 @@ public class Surface : RenderProduction
 		//Set background color
 		ResetTargetColor(BackGroundColor);
 		//Apply matrix transformation and draw
+		transfer.Translation += new Vector3(Displacement, 0);
+		if (CustomSize != DefaultSize)
+		{
+			transfer *= Matrix.CreateScale(new Vector3(AdaptingScale, AdaptingScale, 1));
+		}
 		Transform = transfer;
 		DrawEntities(entities);
 	}
-
+	/// <summary>
+	/// Buh
+	/// </summary>
+	/// <param name="obj"></param>
+	/// <returns></returns>
+	/// <exception cref="NotImplementedException"></exception>
+	public override RenderTarget2D Draw(RenderTarget2D obj) => throw new NotImplementedException();
+	#region Static Members
+	/// <summary>
+	/// Test subtractive surface
+	/// </summary>
+	internal static readonly BlendState bm_subtract = new()
+	{
+		ColorSourceBlend = Blend.One,
+		AlphaSourceBlend = Blend.One,
+		ColorDestinationBlend = Blend.One,
+		AlphaDestinationBlend = Blend.One,
+		ColorBlendFunction = BlendFunction.ReverseSubtract,
+		AlphaBlendFunction = BlendFunction.ReverseSubtract
+	};
+	/// <summary>
+	/// Initialize internal surfaces
+	/// </summary>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	internal static void Initialize()
+	{
+		Normal = new("normal") { BlendState = BlendState.AlphaBlend, SpriteSortMode = SpriteSortMode.FrontToBack, Transfer = TransferUse.ForceNormal };
+		Subtractive = new("subtractive") { BlendState = bm_subtract, SpriteSortMode = SpriteSortMode.FrontToBack, Transfer = TransferUse.ForceNormal };
+		Hidden = new("hidden", true) { BlendState = BlendState.AlphaBlend, SpriteSortMode = SpriteSortMode.FrontToBack, BackGroundColor = Color.Black };
+	}
+	/// <summary>
+	/// <summary>
+	/// The surface for drawing on screen
+	/// </summary>
+	public static Surface Normal { get; private set; }
+	/// <summary>
+	/// The surface for drawing inside the box
+	/// </summary>
+	public static Surface Hidden { get; private set; }
+	/// <summary>
+	/// Subtractive blendmode surface
+	/// </summary>
+	public static Surface Subtractive { get; set; }
+	internal static readonly Surface[] internalSurfaces = [Normal, Hidden, Subtractive];
+	/// <summary>
+	/// The world matrix
+	/// </summary>
+	public static Matrix NormalTransfer { get; private set; }
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	internal static void DistributeEntity(Entity[] entities, Matrix transfer)
 	{
@@ -577,8 +625,12 @@ public class Surface : RenderProduction
 			surfs.Update();
 		//Apply all entities to their corresponding surfaces
 		Dictionary<Surface, List<Entity>> distributer = [];
+		foreach (Surface surf in surfaces.Values)
+			distributer.Add(surf, []);
 		foreach (Entity entity in entities)
 		{
+			if (entity.controlLayer == null)
+				continue;
 			_ = distributer.TryAdd(entity.controlLayer, []);
 			distributer[entity.controlLayer].Add(entity);
 		}
@@ -586,37 +638,29 @@ public class Surface : RenderProduction
 		_ = distributer.TryAdd(Hidden, []);
 		//Draw all masked entities
 		Hidden.Draw([.. distributer[Hidden]], transfer);
-		_ = distributer.Remove(Hidden);
 		//Apply masking of the boxes
-		for (int i = 0; i < FightBox.boxes.Count; i++)
-			distributer[Normal].Add(new BoxPartDrawer(Hidden.RenderPaint, FightBox.boxes[i].Vertices));
+		foreach (FightBox box in FightBox.boxes)
+			distributer[Normal].Add(new BoxPartDrawer(Hidden.RenderPaint, box.Vertices));
 		//All other user defined surfaces
 		foreach (Surface surfs in surfaces.Values)
 		{
 			//Unsure whether it's useful or not
 			if (surfs == Normal || surfs == Hidden)
 				continue;
-			_ = distributer.TryAdd(surfs, []);
-			surfs.Draw([.. distributer[surfs]], transfer);
-			_ = distributer.Remove(surfs);
+			Matrix finTransfer = transfer;
+			if (surfs.CustomSize != DefaultSize)
+			{
+				Vector2 scale = surfs.CustomSize / DefaultSize;
+				finTransfer *= Matrix.CreateScale(new Vector3(scale, 1));
+			}
+			surfs.Draw([.. distributer[surfs]], finTransfer);
 			if (surfs.RestrictArea.Length > 0)
 				distributer[surfs].Add(new BoxPartDrawer(surfs.RenderPaint, surfs.RestrictArea));
 		}
 		//Draw the rest of the entities on the normal surface
-		foreach (KeyValuePair<Surface, List<Entity>> kvp in distributer)
-			kvp.Key.Draw([.. kvp.Value], transfer);
+		Normal.Draw([.. distributer[Normal]], transfer);
 	}
-	/// <summary>
-	/// Buh
-	/// </summary>
-	/// <param name="obj"></param>
-	/// <returns></returns>
-	/// <exception cref="NotImplementedException"></exception>
-	public override RenderTarget2D Draw(RenderTarget2D obj) => throw new NotImplementedException();
-	/// <summary>
-	/// The name of the surface
-	/// </summary>
-	public string Name { get; }
+	#endregion
 }
 /// <summary>
 /// Manages <see cref="RenderProduction"/>
@@ -666,7 +710,7 @@ public class RenderingManager
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal void UpdateAll()
+	internal void UpdateAllRenderProductions()
 	{
 		foreach (RenderProduction surf in surfaces)
 			surf.Update();

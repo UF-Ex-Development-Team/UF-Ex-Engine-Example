@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using static UndyneFight_Ex.MathUtil;
 
 namespace UndyneFight_Ex.IO;
 
@@ -90,7 +89,7 @@ public class SaveInfo
 	/// <summary>
 	/// The value as <see cref="float"/>
 	/// </summary>
-	public float FloatValue => FloatFromString(values[0]);
+	public float FloatValue => values[0].ToFloat();
 	/// <summary>
 	/// The value as <see cref="int"/>
 	/// </summary>
@@ -98,7 +97,7 @@ public class SaveInfo
 	/// <summary>
 	/// The value as <see cref="Vector2"/>, where both values are floats
 	/// </summary>
-	public Vector2 VectorValue => new(FloatFromString(values[0]), FloatFromString(values[1]));
+	public Vector2 VectorValue => new(values[0].ToFloat(), values[1].ToFloat());
 	/// <summary>
 	/// The value as a <see cref="bool"/>
 	/// </summary>
@@ -201,12 +200,8 @@ public static class IOEvent
 		if ((bytes.Count & 1) == 0)
 			bytes.Add(0);
 
-		FileStream stream = new(Location, FileMode.OpenOrCreate);
-
-		stream.Write(Encoder(bytes), 0, bytes.Count);
-
-		stream.Flush();
-		stream.Dispose();
+		using FileStream stream = new(Location, FileMode.Create);
+		stream.Write(Encoder(bytes));
 	}
 	/// <summary>
 	/// <see cref="WriteCustomFile(string, List{byte})"/> but with a file format of '.tmpf', they function the exact same
@@ -377,7 +372,7 @@ public static class FileIO
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static SaveInfo ReadFile(string Path)
 	{
-		FileStream stream = new(Path + ".Tmpf", FileMode.OpenOrCreate);
+		using FileStream stream = new(Path + ".Tmpf", FileMode.OpenOrCreate);
 
 		byte[] res1 = new byte[stream.Length];
 		_ = stream.Read(res1, 0, res1.Length);
@@ -388,40 +383,32 @@ public static class FileIO
 			return null;
 #if DEBUG
 		string tmp = string.Empty;
-		lock (res)
+		int tabCount = 0;
+		foreach (string item in res)
 		{
-			int tabCount = 0;
-			foreach (string item in res)
+			tmp += item + "\n";
+			if (item.EndsWith('{'))
 			{
-				tmp += item + "\n";
-				if (item.EndsWith('{'))
-				{
-					tmp = tmp[..^2] + "\n";
-					for (int i = 0; i < tabCount; i++)
-						tmp += "\t";
-					tmp += "{\n";
-					tabCount++;
-				}
-				else if (item.EndsWith('}'))
-				{
-					tmp = tmp[..^3] + "}\n";
-					tabCount--;
-				}
+				tmp = tmp[..^2] + "\n";
 				for (int i = 0; i < tabCount; i++)
 					tmp += "\t";
+				tmp += "{\n";
+				tabCount++;
 			}
-			if (File.Exists(Path + " Data.txt"))
-				File.Delete(Path + " Data.txt");
-			FileStream stream2 = new(Path + " Data.txt", FileMode.OpenOrCreate);
-			StreamWriter textWriter = new(stream2);
-			textWriter.Write(tmp);
-			textWriter.Flush();
-			stream2.Dispose();
+			else if (item.EndsWith('}'))
+			{
+				tmp = tmp[..^3] + "}\n";
+				tabCount--;
+			}
+			for (int i = 0; i < tabCount; i++)
+				tmp += "\t";
 		}
+		if (File.Exists(Path + " Data.txt"))
+			File.Delete(Path + " Data.txt");
+		using FileStream stream2 = new(Path + " Data.txt", FileMode.Create);
+		using StreamWriter textWriter = new(stream2);
+		textWriter.Write(tmp);
 #endif
-		stream.Flush();
-		stream.Dispose();
-
 		return res;
 	}
 	/// <summary>
@@ -432,12 +419,12 @@ public static class FileIO
 	internal static void CreatePlayerFile(string playerName)
 	{
 		List<string> formals = ["PlayerName:" + playerName, "VIP:false", "NormalFight{", "}"];
-		IOEvent.WriteTmpFile(Path.Combine($"{GameStates.SavePath}\\Datas\\Users\\{playerName}".Split('\\')), IOEvent.StringToByte(formals));
+		IOEvent.WriteTmpFile(GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Users\\{playerName}"), IOEvent.StringToByte(formals));
 	}
 	/// <summary>
 	/// Creates a player file using existing save info data
 	/// </summary>
 	/// <param name="info">The save info of the player</param>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static void CreatePlayerFile(SaveInfo info) => IOEvent.WriteTmpFile(Path.Combine($"{GameStates.SavePath}\\Datas\\Users\\{info.Nexts["PlayerName"].StringValue}".Split('\\')), IOEvent.StringToByte(info));
+	public static void CreatePlayerFile(SaveInfo info) => IOEvent.WriteTmpFile(GlobalData.GetTruePath($"{GameStates.SavePath}\\Datas\\Users\\{info.Nexts["PlayerName"].StringValue}"), IOEvent.StringToByte(info));
 }

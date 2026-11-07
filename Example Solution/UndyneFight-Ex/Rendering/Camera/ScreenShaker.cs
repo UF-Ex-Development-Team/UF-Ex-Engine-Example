@@ -48,7 +48,7 @@ public class ScreenShaker : GameObject
 				return;
 			}
 		}
-		float movePercent = (0.4f / shakeDelay + 0.6f) * 0.7f;
+		float movePercent = 0.28f / shakeDelay + 0.6f;
 		ScreenShakeDelta = ScreenShakeDelta * (1 - movePercent) + shakeVector[_index] * movePercent;
 		appearTime += 0.5f;
 	}

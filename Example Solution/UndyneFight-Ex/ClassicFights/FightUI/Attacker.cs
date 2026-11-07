@@ -16,7 +16,7 @@ internal class AttackTrail : Entity
 	private bool moving = true;
 	private int changeTime = 1;
 	private const float movingSpeed = 5.0f;
-	public override void Draw() => FormalDraw(Image, Centre, Color.White, 0, ImageCentre);
+	public override void Draw() => GeneralDraw(Image, Centre);
 	public override void Update()
 	{
 		if (moving)
@@ -122,7 +122,7 @@ public class Slice : AttackAnimation
 			Dispose();
 			return;
 		}
-		FormalDraw(slideFrames[currentProgress], Centre, Color.White, 0, ImageCentre);
+		GeneralDraw(slideFrames[currentProgress], Centre);
 	}
 
 	public override void Update()

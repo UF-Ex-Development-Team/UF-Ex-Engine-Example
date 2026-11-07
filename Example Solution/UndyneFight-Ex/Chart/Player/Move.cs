@@ -58,9 +58,9 @@ public partial class Player
 				if (IsKeyPressed120f(Keys_[1]))
 					currentLine++;
 
-				currentLine = Math.Clamp(currentLine, 1, mission.purpleLineCount);
+				currentLine = Math.Clamp(currentLine, 1, mission.PurpleLineCount);
 
-				float delta = _curBox.CollidingBox.Height / (mission.purpleLineCount + 1);
+				float delta = _curBox.CollidingBox.Height / (mission.PurpleLineCount + 1);
 
 				Vector2 delta2 = new(0, delta * currentLine + _curBox.Up - mission.Centre.Y);
 				mission.positionRest.Y = delta2.Y;
@@ -220,8 +220,8 @@ public partial class Player
 				}
 				else
 				{
-					if (mission.jumpTimeLeft == mission.jumpTimeLimit && mission.gravitySpeed >= 1f)
-						mission.jumpTimeLeft = mission.jumpTimeLimit - 1;
+					if (mission.jumpTimeLeft == mission.JumpTimeLimit && mission.gravitySpeed >= 1f)
+						mission.jumpTimeLeft = mission.JumpTimeLimit - 1;
 
 					mission.gravitySpeed += mission.SoftFalling ?
 						((mission.gravitySpeed >= 0 && mission.gravitySpeed <= mission.Gravity / 5f)
@@ -324,8 +324,8 @@ public partial class Player
 				}
 				else
 				{
-					if (mission.jumpTimeLeft == mission.jumpTimeLimit)
-						mission.jumpTimeLeft = mission.jumpTimeLimit - 1;
+					if (mission.jumpTimeLeft == mission.JumpTimeLimit)
+						mission.jumpTimeLeft = mission.JumpTimeLimit - 1;
 
 					mission.gravitySpeed += mission.Gravity / 50f;
 				}
@@ -425,8 +425,8 @@ public partial class Player
 				}
 				else
 				{
-					if (mission.jumpTimeLeft == mission.jumpTimeLimit)
-						mission.jumpTimeLeft = mission.jumpTimeLimit - 1;
+					if (mission.jumpTimeLeft == mission.JumpTimeLimit)
+						mission.jumpTimeLeft = mission.JumpTimeLimit - 1;
 
 					mission.gravitySpeed += mission.Gravity / 50f;
 				}

@@ -19,7 +19,7 @@ public static partial class GlobalResources
 					x.Parameters["iProjectAxisY"].SetValue(ProjectAxisY);
 					x.Parameters["iProjectAxisZ"].SetValue(ProjectAxisZ);
 					x.Parameters["iProjectPoint"].SetValue(ProjectPoint);
-					x.Parameters["iProjectPointOffect"].SetValue(ProjectPointOffect);
+					x.Parameters["iProjectPointOffset"].SetValue(ProjectPointOffset);
 
 					x.Parameters["iVisuospatial"].SetValue(Visuospatial);
 					x.Parameters["iPosition"].SetValue(CameraPosition);
@@ -34,7 +34,7 @@ public static partial class GlobalResources
 			public Vector3 ProjectAxisY { get; set; } = Vector3.UnitY;
 			public Vector3 ProjectAxisZ { get; set; } = Vector3.UnitZ;
 			public Vector3 ProjectPoint { get; set; } = new Vector3(0, 0, 300);
-			public Vector2 ProjectPointOffect { get; set; } = new Vector2(320, 240);
+			public Vector2 ProjectPointOffset { get; set; } = new Vector2(320, 240);
 
 			public Vector3 Visuospatial { get; set; } = new Vector3(640, 480, 200);
 			public Vector3 CameraPosition { get; set; } = Vector3.Zero;

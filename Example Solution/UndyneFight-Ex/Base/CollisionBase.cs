@@ -69,7 +69,7 @@ public class GravityLine
 				if (Math.Abs(delta) > 1e-5f)
 				{
 					float ori = MathF.Atan2(s.Centre.Y - Centre.Y, s.Centre.X - Centre.X);
-					float length = GetDistance(Centre, s.Centre);
+					float length = Vector2.Distance(Centre, s.Centre);
 					_delta += Centre + GetVector2(length, (ori + delta) / PI * 180) - s.Centre;
 				}
 				if (sticky)
@@ -146,7 +146,7 @@ public class GravityLine
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool IsCollideWith(Player.Heart player)
 	{
-		if (!IsEnable || !(isCollide = Math.Abs(Distance(player)) <= 8.01f + width && GetDistance(player.Centre, Centre) <= (Length / 2 + 6)))
+		if (!IsEnable || !(isCollide = Math.Abs(Distance(player)) <= 8.01f + width && Vector2.Distance(player.Centre, Centre) <= (Length / 2 + 6)))
 			return false;
 		if (Vector2.Dot(player.Centre - Centre, GetVector2(1, player.Rotation - 90)) < 0)
 			return isCollide = false;
@@ -157,7 +157,7 @@ public class GravityLine
 	internal Vector2 CorrectPosition(Player.Heart player)
 	{
 		Vector2 _v = new(MathF.Cos(NormalRotation), MathF.Sin(NormalRotation));
-		Vector2 change = _v * (8 + width - Cos(player.Centre - Centre, _v) * GetDistance(player.Centre, Centre)) * 0.25f;
+		Vector2 change = _v * (8 + width - Cos(player.Centre - Centre, _v) * Vector2.Distance(player.Centre, Centre)) * 0.25f;
 		return change;
 	}
 	/// <summary>

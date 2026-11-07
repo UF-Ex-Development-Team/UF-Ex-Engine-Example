@@ -16,7 +16,7 @@ public class Bomb : BulletShootable
 			allStates = mode;
 			Centre = position;
 			Image = allStates[0];
-			Depth = 0.53f;
+			Depth = DefaultValues.DEFAULT_BOMB_BLAST_DEPTH;
 			Hidden = false;
 		}
 		private int index = 0, count = 0;
@@ -45,7 +45,7 @@ public class Bomb : BulletShootable
 		_explodeDelay = explodeDelay;
 		Image = Sprites.MettBomb[0];
 		PositionRoute = ease;
-		Depth = 0.501f;
+		Depth = DefaultValues.DEFAULT_BOMB_DEPTH;
 	}
 	private readonly List<Entity> canDestroy = [];
 	private bool isShot = false;
@@ -101,7 +101,7 @@ public class Bomb : BulletShootable
 	{
 		canDestroy.ForEach(c => c.Dispose());
 		Vector2 centre = Centre;
-		GameStates.InstanceCreate(new BombBlast(centre, Sprites.MettBombCoreBlast) { controlLayer = controlLayer, Depth = Depth });
+		GameStates.InstanceCreate(new BombBlast(centre, Sprites.MettBombCoreBlast) { controlLayer = controlLayer, Depth = Depth, MarkScore = false });
 		for (int i = 0; i < 4; i++)
 		{
 			float rotation = i * 90;
@@ -109,7 +109,7 @@ public class Bomb : BulletShootable
 			while (Screen.Contain(centre))
 			{
 				centre += MathUtil.GetVector2(20, rotation);
-				GameStates.InstanceCreate(new BombBlast(centre, Sprites.MettBombBlast) { controlLayer = controlLayer, Depth = Depth, Rotation = i % 2 == 0 ? 0 : 90 });
+				GameStates.InstanceCreate(new BombBlast(centre, Sprites.MettBombBlast) { controlLayer = controlLayer, Depth = Depth, Rotation = i % 2 == 0 ? 0 : 90, MarkScore = false });
 			}
 		}
 	}

@@ -14,7 +14,7 @@ public static class MathUtil
 	/// <summary>
 	/// Pi
 	/// </summary>
-	public const float PI = 3.141592f;
+	public const float PI = MathF.PI;
 	#region Collision
 	/// <summary>
 	/// Checks if two lines intersect each other
@@ -128,34 +128,8 @@ public static class MathUtil
 	/// </summary>
 	/// <param name="str">The string to convert to a float</param>
 	/// <returns>The float from string</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static float FloatFromString(string str)
-	{
-		//Uses , as separator
-		if (str.Contains(','))
-			str = str.Trim(',');
-		string[] strs = str.Split('.');
-		string BeforeDecimal = strs.First();
-		string AfterDecimal = strs.Last();
-		//Has multiple '.'
-		if (strs.Length > 2)
-			for (int i = 1; i < strs.Length - 2; i++)
-				BeforeDecimal += strs[i];
-		float fin = (float)Convert.ToDouble(BeforeDecimal) + (float)Convert.ToDouble(AfterDecimal) / Pow(10, AfterDecimal.Length);
-		return str.Contains('.') ? fin : (float)Convert.ToDouble(BeforeDecimal);
-	}
-	/// <summary>
-	/// Gets the distance of a point to a line
-	/// </summary>
-	/// <param name="Point">The point to evaluate</param>
-	/// <param name="Start">The first end of the line</param>
-	/// <param name="End">The second end of the line</param>
-	/// <returns>The distance of the point to line</returns>
-	public static float DistanceToLine(Vector2 Point, Vector2 Start, Vector2 End)
-	{
-		Vector2 Delta = End - Start;
-		return MathF.Abs(Point.Cross(Delta) + End.Cross(Start)) / Delta.Length();
-	}
+	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use string.ToFloat() instead")]
+	public static float FloatFromString(string str) => str.ToFloat();
 	/// <summary>
 	/// Returns the minimal angle difference between two angles
 	/// </summary>
@@ -164,42 +138,6 @@ public static class MathUtil
 	/// <returns>The angle difference, range is [0, 180]</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static float RotationDist(float rot1, float rot2) => MathF.Min((rot1 + 360 - rot2) % 360, (rot2 + 360 - rot1) % 360);
-	/// <summary>
-	/// Returns the scalar projection of a vector onto the given vector
-	/// </summary>
-	/// <param name="origin">The vector to project</param>
-	/// <param name="vec">The vector to project to</param>
-	/// <returns>The scalar projection of a vector</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static float ScalarProject(this Vector2 origin, Vector2 vec) => Vector2.Dot(origin, vec) / origin.Length();
-	/// <summary>
-	/// Projects a vector onto the given vector
-	/// </summary>
-	/// <param name="origin">The vector to project</param>
-	/// <param name="vec">The vector to project to</param>
-	/// <returns>The projected vector</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static Vector2 Project(this Vector2 origin, Vector2 vec) => Vector2.Dot(origin, vec) / origin.LengthSquared() * vec;
-	/// <summary>
-	/// Rotates the vector by the given angle in degrees
-	/// </summary>
-	/// <param name="origin">The original vector</param>
-	/// <param name="rot">The amount of degrees to rotate</param>
-	/// <returns>The rotated vector</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static Vector2 Rotate(Vector2 origin, float rot) => GetVector2(origin.Length(), origin.Direction() + rot);
-	/// <summary>
-	/// Rotates the vector by the given angle in radians
-	/// </summary>
-	/// <param name="origin">The original vector</param>
-	/// <param name="rad">The amount of degrees to rotate in radians</param>
-	/// <returns>The rotated vector</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static Vector2 RotateRadian(Vector2 origin, float rad)
-	{
-		float angle = Atan2(origin.Y, origin.X) + rad;
-		return new Vector2(MathF.Cos(angle), Sin(angle)) * origin.Length();
-	}
 	/// <summary>
 	/// Returns the minimal angle difference between two angles
 	/// </summary>
@@ -222,22 +160,6 @@ public static class MathUtil
 	/// <returns>The number raised to the power <paramref name="pow"/> maintaining the sign of <paramref name="val"/>.</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static float SignedPow(float val, float pow) => val >= 0 ? Pow(val, pow) : -Pow(-val, pow);
-
-	/// <summary>
-	/// Get the angle in degrees between the two vectors
-	/// </summary>
-	/// <param name="start">The starting vector</param>
-	/// <param name="end">The ending vector</param>
-	/// <returns>The angle between the two vectors in degrees</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static float Direction(Vector2 start, Vector2 end) => Atan2((end - start).Y, (end - start).X) / MathF.PI * 180;
-	/// <summary>
-	/// Gets the direction of the vector with respect to the origin in degrees
-	/// </summary>
-	/// <param name="vec">The vector to check</param>
-	/// <returns>The angle of the vector in degrees</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static float Direction(this Vector2 vec) => Atan2(vec.Y, vec.X) / MathF.PI * 180;
 	/// <summary>
 	/// Adjusted <see cref="Tanh(float)"/> value, used for smooth transition. range and domain are both [0, 1]
 	/// </summary>
@@ -245,22 +167,6 @@ public static class MathUtil
 	/// <returns></returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static float Sigmoid01(float val) => (Tanh(val * 6 - 3) / 0.99505f + 1) / 2f;
-	/// <summary>
-	/// The determinant/cross product of two 2D vectors
-	/// </summary>
-	/// <param name="vec">The first vector</param>
-	/// <param name="vec2">The second vector</param>
-	/// <returns>The determinant/cross product</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static float Cross(this Vector2 vec, Vector2 vec2) => vec.X * vec2.Y - vec.Y * vec2.X;
-	/// <summary>
-	/// The cross product of two 3D vectors
-	/// </summary>
-	/// <param name="vec">The first vector</param>
-	/// <param name="vec2">The second vector</param>
-	/// <returns>The cross product</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static Vector3 Cross(this Vector3 vec, Vector3 vec2) => new(vec.Y * vec2.Z - vec.Z * vec2.Y, vec.Z * vec2.X - vec.X * vec2.Z, vec.X * vec2.Y - vec.Y * vec2.X);
 	/// <summary>
 	/// Gets the radian equivalent of the angle in degrees
 	/// </summary>
@@ -275,22 +181,6 @@ public static class MathUtil
 	/// <returns>The angle in degrees</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static float GetAngle(float angle) => angle / MathF.PI * 180;
-	/// <summary>
-	/// Calculates the <see cref="Vector2"/> using the given <paramref name="length"/> and <paramref name="angle"/>.
-	/// </summary>
-	/// <param name="length">The specified length of the vector</param>
-	/// <param name="angle">The specified angle (in degrees)</param>
-	/// <returns></returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static Vector2 GetVector2(float length, float angle) => new Vector2(MathF.Cos(GetRadian(angle)), Sin(GetRadian(angle))) * length;
-	/// <summary>
-	/// Gets the distance between two vectors
-	/// </summary>
-	/// <param name="P1">The first vector</param>
-	/// <param name="P2">The second vector</param>
-	/// <returns></returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static float GetDistance(Vector2 P1, Vector2 P2) => Vector2.Distance(P1, P2);
 	/// <summary>
 	/// Gets a random value at [<paramref name="x"/>, <paramref name="y"/>]
 	/// </summary>
@@ -315,14 +205,6 @@ public static class MathUtil
 	/// <returns>The random value from the specified values</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static T RandIn<T>(params T[] inputs) => inputs[GetRandom(0, inputs.Length - 1)];
-	/// <summary>
-	/// The cosine value from vector calculation, see <see href="https://en.wikipedia.org/wiki/Cosine_similarity"/> for more information
-	/// </summary>
-	/// <param name="a">The first vector</param>
-	/// <param name="b">The second vector</param>
-	/// <returns>The cosine value of the angle between the two vectors</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static float Cos(Vector2 a, Vector2 b) => Vector2.Dot(a, b) / (a.Length() * b.Length());
 	/// <summary>
 	/// Hashes the given string
 	/// </summary>
@@ -417,8 +299,8 @@ public static class MathUtil
 		rsa.FromXmlString(rsaKeyPrivate);
 
 		byte[] buffer = Convert.FromBase64String(base64Origin);
-		byte[] DecryptBuffer = rsa.Decrypt(buffer, false); // 进行解密
-		string str = Encoding.UTF8.GetString(DecryptBuffer); // 将byte[]转换为明文
+		byte[] DecryptBuffer = rsa.Decrypt(buffer, false);
+		string str = Encoding.UTF8.GetString(DecryptBuffer);
 
 		return str;
 	}
@@ -448,4 +330,102 @@ public static class MathUtil
 	/// <param name="items">The number of items in the sequence</param>
 	/// <returns>The sum of the sequence</returns>
 	public static float GeometricSum(float start, float ratio, float items) => start * (1 - Pow(ratio, items)) / (1 - ratio);
+	#region Vector functions
+	/// <summary>
+	/// Gets the distance of a point to a line
+	/// </summary>
+	/// <param name="Point">The point to evaluate</param>
+	/// <param name="Start">The first end of the line</param>
+	/// <param name="End">The second end of the line</param>
+	/// <returns>The distance of the point to line</returns>
+	[Obsolete("Use Vector2.DistanceToLine() instead"), MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static float DistanceToLine(Vector2 Point, Vector2 Start, Vector2 End) => Point.DistanceToLine(Start, End);
+	/// <summary>
+	/// Returns the scalar projection of a vector onto the given vector
+	/// </summary>
+	/// <param name="origin">The vector to project</param>
+	/// <param name="vec">The vector to project to</param>
+	/// <returns>The scalar projection of a vector</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use Vector2.ScalarProject() instead")]
+	public static float ScalarProject(Vector2 origin, Vector2 vec) => origin.ScalarProject(vec);
+	/// <summary>
+	/// Projects a vector onto the given vector
+	/// </summary>
+	/// <param name="origin">The vector to project</param>
+	/// <param name="vec">The vector to project to</param>
+	/// <returns>The projected vector</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use Vector2.Project() instead")]
+	public static Vector2 Project(Vector2 origin, Vector2 vec) => origin.Project(vec);
+	/// <summary>
+	/// Rotates the vector by the given angle in degrees
+	/// </summary>
+	/// <param name="origin">The original vector</param>
+	/// <param name="rot">The amount of degrees to rotate</param>
+	/// <returns>The rotated vector</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use Vector2.RotateDegrees() instead")]
+	public static Vector2 Rotate(Vector2 origin, float rot) => origin.RotateDegrees(rot);
+	/// <summary>
+	/// Rotates the vector by the given angle in radians
+	/// </summary>
+	/// <param name="origin">The original vector</param>
+	/// <param name="rad">The amount of degrees to rotate in radians</param>
+	/// <returns>The rotated vector</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use Vector2.Rotate() instead")]
+	public static Vector2 RotateRadian(Vector2 origin, float rad) => Vector2.Rotate(origin, rad);
+	/// <summary>
+	/// Get the angle in degrees between the two vectors
+	/// </summary>
+	/// <param name="start">The starting vector</param>
+	/// <param name="end">The ending vector</param>
+	/// <returns>The angle between the two vectors in degrees</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static float Direction(Vector2 start, Vector2 end) => (end - start).Direction();
+	/// <summary>
+	/// Gets the direction of the vector with respect to the origin in degrees
+	/// </summary>
+	/// <param name="vec">The vector to check</param>
+	/// <returns>The angle of the vector in degrees</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use Vector2.Direction() instead")]
+	public static float Direction(Vector2 vec) => vec.Direction();
+	/// <summary>
+	/// The determinant/cross product of two 2D vectors
+	/// </summary>
+	/// <param name="vec">The first vector</param>
+	/// <param name="vec2">The second vector</param>
+	/// <returns>The determinant/cross product</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use Vector2.Cross() instead")]
+	public static float Cross(Vector2 vec, Vector2 vec2) => vec.Cross(vec2);
+	/// <summary>
+	/// The cross product of two 3D vectors
+	/// </summary>
+	/// <param name="vec">The first vector</param>
+	/// <param name="vec2">The second vector</param>
+	/// <returns>The cross product</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use Vector3.Cross() instead")]
+	public static Vector3 Cross(Vector3 vec, Vector3 vec2) => vec.Cross(vec2);
+	/// <summary>
+	/// Calculates the <see cref="Vector2"/> using the given <paramref name="length"/> and <paramref name="angle"/>.
+	/// </summary>
+	/// <param name="length">The specified length of the vector</param>
+	/// <param name="angle">The specified angle (in degrees)</param>
+	/// <returns></returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static Vector2 GetVector2(float length, float angle) => new Vector2(MathF.Cos(GetRadian(angle)), Sin(GetRadian(angle))) * length;
+	/// <summary>
+	/// Gets the distance between two vectors
+	/// </summary>
+	/// <param name="P1">The first vector</param>
+	/// <param name="P2">The second vector</param>
+	/// <returns></returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("Use Vector2.Distance instead")]
+	public static float GetDistance(Vector2 P1, Vector2 P2) => Vector2.Distance(P1, P2);
+	/// <summary>
+	/// The cosine value from vector calculation, see <see href="https://en.wikipedia.org/wiki/Cosine_similarity"/> for more information
+	/// </summary>
+	/// <param name="a">The first vector</param>
+	/// <param name="b">The second vector</param>
+	/// <returns>The cosine value of the angle between the two vectors</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static float Cos(Vector2 a, Vector2 b) => Vector2.Dot(a, b) / (a.Length() * b.Length());
+	#endregion
 }

@@ -16,9 +16,9 @@ public partial class Arrow
 			Vector2.Zero,
 			new(2, 3)
 		];
-		public BreakArrow(float speed, float missionRot, int color, int rotatingType, Vector2 position, float scale)
+		public BreakArrow(float speed, float missionRot, int color, int rotatingType, Vector2 position, Vector2 scale)
 		{
-			Scale = scale;
+			Scales = scale;
 			UpdateIn120 = true;
 			Centre = position;
 			Rotation = missionRot;
@@ -42,10 +42,10 @@ public partial class Arrow
 				{
 					//Tempoary workaround until I decide to make sprites for the other colors
 					Texture2D image = FightResources.Sprites.arrowShards[int.Clamp(color, 0, FightResources.Sprites.arrowShards.GetLength(0) - 1), rotatingType, i];
-					Vector2 pos = Centre + Rotate(shardPosition[i] - ImageCentre + image.Bounds.Size.ToVector2() / 2, Rotation) * Scale;
+					Vector2 pos = Centre + (shardPosition[i] - ImageCentre + image.Bounds.Size.ToVector2() / 2).RotateDegrees(Rotation) * Scales;
 					GameStates.InstanceCreate(new ArrowPiece(
-						GetVector2(Rand(1.1f, 2.6f) / 1.5f, Rand(-28, 28) + Rotation + (shardPosition[i].Y > ImageCentre.Y / 2 ? 90 : -90)) * Scale + GetVector2(speed.Length() / 3f, Rotation),
-						pos, Rotation, image, Scale
+						GetVector2(Rand(1.1f, 2.6f) / 1.5f, Rand(-28, 28) + Rotation + (shardPosition[i].Y > ImageCentre.Y / 2 ? 90 : -90)) * Scales + GetVector2(speed.Length() / 3f, Rotation),
+						pos, Rotation, image, Scales
 					));
 				}
 				Dispose();
@@ -54,6 +54,6 @@ public partial class Arrow
 			Image = FightResources.Sprites.arrow[color, rotatingType, appearTime];
 		}
 
-		public override void Draw() => FormalDraw(Image, Centre, Color.White * 0.5f, Scale, GetRadian(Rotation += rotSpeed), ImageCentre);
+		public override void Draw() => GeneralDraw(Image, Centre, Color.White * 0.5f, Scales, GetRadian(Rotation += rotSpeed));
 	}
 }

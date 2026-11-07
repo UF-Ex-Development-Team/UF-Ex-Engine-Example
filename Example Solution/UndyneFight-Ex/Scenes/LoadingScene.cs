@@ -18,8 +18,12 @@ public class LoadingScene : Scene
 {
 	internal LoadingScene(Action loadingFinished, Action loadingAction, bool unLoad = true)
 	{
+#if NET10_0_OR_GREATER
+		CurrentScene?.CurrentDrawingSettings.defaultWidth = 640f;
+#else
 		if (CurrentScene != null)
 			CurrentScene.CurrentDrawingSettings.defaultWidth = 640f;
+#endif
 		if (unLoad)
 			Loader.Unload();
 		LoadingFinishedEvent = loadingFinished;
@@ -29,9 +33,6 @@ public class LoadingScene : Scene
 			loadingAction();
 			finishedLoad = true;
 		});
-		//Load audio previews if its the initial loading screen
-		if (this is ResourcesLoadingScene)
-			LoadSongPreviews();
 	}
 
 	private readonly Action LoadingFinishedEvent;
@@ -259,10 +260,10 @@ internal class ResourcesLoadingScene : LoadingScene
 			GeneralDraw(Sprites.progressArrow, new(395 + i * 20, 430), Color.White * (Functions.Sin((appearTime - i * 6 - 20) * 3.75f) * 0.9f + 0.1f) * 0.8f);
 		Localization.DrawLocalizedText("SplashScreen.Boot", new Vector2(320, 120), scale: new Vector2(0.8f), depth: 0, align: Localization.DrawAlign.Middle);
 		//Audio preview loading bar
-		Localization.DrawLocalizedText("SplashScreen.AudioPreview", new Vector2(320, 320), [LoadedPreviewAudioCount, AudioPreviewDatas.Count], color: Color.White * MathF.Abs(Functions.Sin(appearTime)), scale: new Vector2(0.6f), depth: 0.98f, align: Localization.DrawAlign.Middle);
-		GeneralDraw(FightResources.Sprites.pixUnit, new Vector2(320, 320), Color.White, new Vector2(404, 24));
-		GeneralDraw(FightResources.Sprites.pixUnit, new Vector2(320, 320), Color.Gray, new Vector2(400, 20));
-		GeneralDraw(FightResources.Sprites.pixUnit, new Vector2(120 + loadProgress, 320), Color.LimeGreen, new Vector2(loadProgress * 2, 20));
+		Localization.DrawLocalizedText("SplashScreen.AudioPreview", new Vector2(320, 320), color: Color.White * MathF.Abs(Functions.Sin(appearTime)), scale: new Vector2(0.6f), depth: 0.98f, align: Localization.DrawAlign.Middle);
+		GeneralDraw(FightResources.Sprites.pixUnit, new Vector2(320, 320), Color.White, new Vector2(404, 24), depth: 0.45f);
+		GeneralDraw(FightResources.Sprites.pixUnit, new Vector2(320, 320), Color.Gray, new Vector2(400, 20), depth: 0.46f);
+		GeneralDraw(FightResources.Sprites.pixUnit, new Vector2(120 + loadProgress, 320), Color.LimeGreen, new Vector2(loadProgress * 2, 20), depth: 0.47f);
 		string str = Localization.GetText("SplashScreen.Loading", Localization.GetText($"SplashScreen.LoadState.{LoadState}"));
 		for (int i = 0; i < DateTime.Now.Ticks / 5000000 % 4; i++)
 			str += ".";
@@ -273,7 +274,8 @@ internal class ResourcesLoadingScene : LoadingScene
 	public override void Update()
 	{
 		base.Update();
-		loadProgress = float.Lerp(loadProgress, 200f * LoadedPreviewAudioCount / AudioPreviewDatas.Count, 0.04f);
+		if (AudioPreviewDatas.Count != 0)
+			loadProgress = float.Lerp(loadProgress, 200f * LoadedPreviewAudioCount / AudioPreviewDatas.Count, 0.04f);
 		if (splashHoldTime < 0)
 			splashHoldTime++;
 		else

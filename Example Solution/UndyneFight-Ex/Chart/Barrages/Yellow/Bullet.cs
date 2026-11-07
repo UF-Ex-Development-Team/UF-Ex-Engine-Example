@@ -19,7 +19,7 @@ public class SoulBullet : AutoEntity, ICustomMotion
 		PositionRoute = InfLinear(MathUtil.GetVector2(22, heart.Rotation + 90));
 		Image = Sprites.SoulShoot;
 		PlaySound(Sounds.YellowShoot);
-		Rotation = heart.Rotation + 180;
+		Rotation = (heart.Rotation + 180) * MathF.PI / 180;
 		AngleMode = true;
 		Broadcast("Bullet");
 	}

@@ -42,7 +42,7 @@ public partial class Souls
 		for (int i = 0; i < Vertices.Length; i++)
 		{
 			Vector2 a = Vertices[i].CurrentPosition, b = Vertices[(i + 1) % Vertices.Length].CurrentPosition,
-			normal = Rotate(b - a, 90), centre = (a + b) / 2, along = (b - a) / 2,
+			normal = (b - a).RotateDegrees(90), centre = (a + b) / 2, along = (b - a) / 2,
 			del1 = curCentre - centre, del2 = nexCentre - centre;
 
 			float distance = along.Length();
@@ -50,12 +50,12 @@ public partial class Souls
 			along.Normalize();
 
 			//project the vector to the along vector to make sure the heart can be control by the segment
-			float dirDelta1 = MathUtil.ScalarProject(along, del1), dirDelta2 = MathUtil.ScalarProject(along, del2);
+			float dirDelta1 = along.ScalarProject(del1), dirDelta2 = along.ScalarProject(del2);
 			if (MathF.Abs(dirDelta1) > distance + 0.2f && MathF.Abs(dirDelta2) > distance + 0.2f)
 				continue;
 
 			//project the vector to the normal vector and get the distance of heart and line
-			float dis1 = MathUtil.ScalarProject(normal, del1), dis2 = MathUtil.ScalarProject(normal, del2);
+			float dis1 = normal.ScalarProject(del1), dis2 = normal.ScalarProject(del2);
 			if (dis1 < 0)
 			{
 				dis2 = -dis2;

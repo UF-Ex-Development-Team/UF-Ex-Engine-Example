@@ -400,7 +400,7 @@ public class DialogBox : Entity
 		if (currentProgress >= textPrinters.Length)
 			return;
 		textPrinters[currentProgress].Draw();
-		FormalDraw(Image, location, Color.White, 0, Vector2.Zero);
+		GeneralDraw(Image, location, spriteOrigin: Vector2.Zero);
 	}
 
 	public override void Update()

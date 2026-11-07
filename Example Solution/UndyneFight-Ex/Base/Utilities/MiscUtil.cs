@@ -419,8 +419,8 @@ public static class MiscUtil
 					//Check for a scalar scale or vector scale
 					string[] ScaleArg = Arguments[CurrentCommandCount].Arguments;
 					currentDrawingData.Scale = ScaleArg.Length == 1
-						? new(MathUtil.FloatFromString(ScaleArg[0]))
-						: new(MathUtil.FloatFromString(ScaleArg[0]), MathUtil.FloatFromString(ScaleArg[1]));
+						? new(ScaleArg[0].ToFloat())
+						: new(ScaleArg[0].ToFloat(), ScaleArg[1].ToFloat());
 					break;
 				case "/Scale":
 					currentDrawingData.Scale = defaultTextBuilderData.Scale;
@@ -458,15 +458,31 @@ public static class MiscUtil
 					{
 						//Displacement
 						spritePosDelta = new(
-							SpriteArg.Arguments[1] == "" ? 0 : MathUtil.FloatFromString(SpriteArg.Arguments[1]),
-							SpriteArg.Arguments[2] == "" ? 0 : MathUtil.FloatFromString(SpriteArg.Arguments[2]));
+							SpriteArg.Arguments[1] == "" ? 0 : SpriteArg.Arguments[1].ToFloat(),
+							SpriteArg.Arguments[2] == "" ? 0 : SpriteArg.Arguments[2].ToFloat());
 						//Index
 						if (SpriteArg.Arguments.Length > 3)
-							spriteIndex = (int)MathUtil.FloatFromString(SpriteArg.Arguments[3]);
+							spriteIndex = (int)SpriteArg.Arguments[3].ToFloat();
 					}
+					//Insert placeholder null char for sprite
 					ParsedText = ParsedText.Insert(_currentDrawingCharIndex, "\u0000");
 					_currentDrawSpriteCount++;
-					drawingPositions.Add(drawingPositions[_currentDrawingCharIndex - 1] + new Vector2(_glyphData[_currentDrawingCharIndex - 1].GetSize().X, 0));
+					//Compute sprite drawing position
+					Vector2 spritePos;
+					if (drawingPositions.Count == 0 || _currentDrawingCharIndex - 1 < 0)
+					{
+						spritePos = _parseDrawingPosition;
+					}
+					else
+					{
+						float prevWidth = 0f;
+						if (_currentDrawingCharIndex - 1 < _glyphData.Count && _currentDrawingCharIndex - 1 >= 0)
+							prevWidth = _glyphData[_currentDrawingCharIndex - 1].GetSize().X;
+						spritePos = drawingPositions[_currentDrawingCharIndex - 1] + new Vector2(prevWidth, 0);
+					}
+					//Apply displacement
+					spritePos += spritePosDelta;
+					drawingPositions.Add(spritePos);
 					break;
 				case "Wave":
 					currentDrawingData.Effect ^= Effects.Wave;
@@ -476,12 +492,12 @@ public static class MiscUtil
 						int countDiff = currentDrawingData.EffectParam.Count - currentDrawingData.curEffCount;
 						if (countDiff == 0)
 						{
-							currentDrawingData.EffectParam.Add([MathUtil.FloatFromString(WaveArg[0])]);
+							currentDrawingData.EffectParam.Add([WaveArg[0].ToFloat()]);
 							curStackEffCount++;
 						}
 						else if (countDiff > 0)
 						{
-							currentDrawingData.EffectParam.Last().Add(MathUtil.FloatFromString(WaveArg[0]));
+							currentDrawingData.EffectParam.Last().Add(WaveArg[0].ToFloat());
 							curStackEffCount++;
 						}
 					}
@@ -500,9 +516,9 @@ public static class MiscUtil
 						string[] ShakeArg = Arguments[CurrentCommandCount].Arguments;
 						Vector3 ShakeParam = ShakeArg.Length switch
 						{
-							1 => new(new Vector2(MathUtil.FloatFromString(ShakeArg[0])), 1),
-							2 => new(MathUtil.FloatFromString(ShakeArg[0]), MathUtil.FloatFromString(ShakeArg[1]), 1),
-							3 => new(MathUtil.FloatFromString(ShakeArg[0]), MathUtil.FloatFromString(ShakeArg[1]), MathUtil.FloatFromString(ShakeArg[2]))
+							1 => new(new Vector2(ShakeArg[0].ToFloat()), 1),
+							2 => new(ShakeArg[0].ToFloat(), ShakeArg[1].ToFloat(), 1),
+							3 => new(ShakeArg[0].ToFloat(), ShakeArg[1].ToFloat(), ShakeArg[2].ToFloat())
 						};
 						int countDiff = currentDrawingData.EffectParam.Count - currentDrawingData.curEffCount;
 						if (countDiff <= 0)
@@ -613,7 +629,29 @@ public static class MiscUtil
 					//Check defined textures
 					string[] SpriteArg = Arguments[CurrentCommandCount - 1].Arguments;
 					string SpriteToDraw = SpriteArg[0];
-					int spriteIndex = SpriteArg.Length > 3 ? (int)MathUtil.FloatFromString(SpriteArg[3]) : 0;
+					int spriteIndex = SpriteArg.Length > 3 ? (int)SpriteArg[3].ToFloat() : 0;
+					// Optional per-sprite parameters
+					float spriteScale = 1f;
+					float spriteRotation = 0f; // degrees, will convert to radians when storing
+					bool spriteVCenter = false;
+					//Scale
+					if (SpriteArg.Length > 4)
+					{
+						if (!string.IsNullOrEmpty(SpriteArg[4]))
+							spriteScale = SpriteArg[4].ToFloat();
+					}
+					//Rotation
+					if (SpriteArg.Length > 5)
+					{
+						if (!string.IsNullOrEmpty(SpriteArg[5]))
+							spriteRotation = SpriteArg[5].ToFloat();
+					}
+					if (SpriteArg.Length > 6)
+					{
+						string vc = SpriteArg[6];
+						if (!string.IsNullOrEmpty(vc) && (vc.Equals("center", StringComparison.OrdinalIgnoreCase) || vc.Equals("vc", StringComparison.OrdinalIgnoreCase) || vc.Equals("vcenter", StringComparison.OrdinalIgnoreCase)))
+							spriteVCenter = true;
+					}
 					if (!DefinedTextures.TryGetValue(SpriteToDraw, out Texture2D tex))
 					{
 						//Check GlobalResources
@@ -622,16 +660,18 @@ public static class MiscUtil
 							preTex = preTex is Texture2D ? preTex as Texture2D : (preTex as Texture2D[])[spriteIndex];
 						else //Check FightResources
 							if ((preTex = GetAsset(SpriteToDraw, typeof(FightResources.Sprites))) is not null)
-							preTex = preTex is Texture2D ? preTex as Texture2D : (preTex as Texture2D[])[spriteIndex];
+								preTex = preTex is Texture2D ? preTex as Texture2D : (preTex as Texture2D[])[spriteIndex];
 						tex = preTex as Texture2D;
 					}
 					_glyphData.Add(new()
 					{
 						Blend = currentDrawingData.Col,
 						Font = currentDrawingData.CurrentFont,
-						Scale = currentDrawingData.Scale,
+						Scale = currentDrawingData.Scale * new Vector2(spriteScale, spriteScale),
 						_char = '\u0000',
-						Sprite = tex
+						Sprite = tex,
+						Rotation = MathUtil.GetRadian(spriteRotation),
+						VerticalCenter = spriteVCenter
 					});
 					_parseDrawingPosition += _glyphData[_currentDrawingCharIndex].GetSize() + new Vector2(4, 0);
 					continue;
@@ -775,14 +815,15 @@ public static class MiscUtil
 						string[] SpriteArg = Arguments[CurrentCommandCount - 1].Arguments;
 						//Displacement
 						Vector2 spritePosDelta = SpriteArg.Length > 1 ? new(
-								SpriteArg[1] == "" ? 0 : MathUtil.FloatFromString(SpriteArg[1]),
-								SpriteArg[2] == "" ? 0 : MathUtil.FloatFromString(SpriteArg[2])) : Vector2.Zero;
-						FormalDraw(curGlyphData.Sprite, ParseRenderPosition(_currentDrawingCharIndex) + spritePosDelta, curGlyphData.Blend[0], curGlyphData.Scale, 0, currentDrawingData.VAlignment switch
+									SpriteArg[1] == "" ? 0 : SpriteArg[1].ToFloat(),
+									SpriteArg[2] == "" ? 0 : SpriteArg[2].ToFloat()) : Vector2.Zero;
+						Vector2 spriteOrigin = curGlyphData.VerticalCenter ? new(0, curGlyphData.Sprite.Height / 2f) : currentDrawingData.VAlignment switch
 						{
 							TextVAlignment.Top => Vector2.Zero,
 							TextVAlignment.Center => new(0, curGlyphData.Sprite.Height / 2f),
 							_ => new(0, curGlyphData.Sprite.Height)
-						});
+						};
+						GeneralDraw(curGlyphData.Sprite, ParseRenderPosition(_currentDrawingCharIndex) + spritePosDelta, curGlyphData.Blend[0], curGlyphData.Scale, curGlyphData.Rotation, spriteOrigin, depth: Depth);
 						++i;
 						continue;
 					}
@@ -944,10 +985,18 @@ public static class MiscUtil
 			/// </summary>
 			public Texture2D Sprite = null;
 			/// <summary>
+			/// Rotation to apply to inline sprite (radians)
+			/// </summary>
+			public float Rotation = 0;
+			/// <summary>
+			/// Whether to vertically center this inline sprite relative to text line
+			/// </summary>
+			public bool VerticalCenter = false;
+			/// <summary>
 			/// The character that possess the data (Debug use)
 			/// </summary>
 			public char _char;
-			public readonly Vector2 GetSize() => (Sprite is null ? Font.SFX.MeasureString(_char.ToString()) : Sprite.Bounds.Size.ToVector2()) * Scale;
+			public readonly Vector2 GetSize() => (Sprite is null ? _char == '\u0000' ? Vector2.Zero : Font.SFX.MeasureString(_char.ToString()) : Sprite.Bounds.Size.ToVector2()) * Scale;
 		}
 		#endregion
 		#region User callable functions

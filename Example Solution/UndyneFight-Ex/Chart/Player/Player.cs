@@ -1,4 +1,5 @@
-﻿using static UndyneFight_Ex.Fight.Functions;
+﻿using UndyneFight_Ex.Server;
+using static UndyneFight_Ex.Fight.Functions;
 
 namespace UndyneFight_Ex.Entities;
 
@@ -16,11 +17,9 @@ public partial class Player : Entity
 			this.color = color * (ScreenDrawing.UIColor.A / 255f);
 			Image = FightResources.Sprites.soulCollide;
 			UpdateIn120 = true;
-			Depth = 0.4f;
+			Depth = DefaultValues.DEFAULT_COLLIDE_EFFECT_DEPTH;
 		}
-
-		public override void Draw() => FormalDraw(Image, Centre, color * light, size, MathUtil.GetRadian((FatherObject as Heart).Rotation), ImageCentre);
-
+		public override void Draw() => GeneralDraw(Image, Centre, color * light, new Vector2(size), MathUtil.GetRadian((FatherObject as Heart).Rotation));
 		public override void Update()
 		{
 			Centre = (FatherObject as Heart).Centre;
@@ -74,14 +73,14 @@ public partial class Player : Entity
 			}
 
 			private int appearTime = 0;
-			private readonly int halfTime = 14;
+			private readonly int halfTime = 14, lineCount = 0;
 			private float percent = 0;
-			private readonly int lineCount = 0;
 
 			public override void Draw()
 			{
 				CollideRect v = user.controllingBox.CollidingBox;
-				FormalDraw(FightResources.Sprites.pixUnit, new CollideRect(v.X, appearTime < halfTime ? v.Y : v.Down - v.Height * percent, v.Width, v.Height * percent).ToRectangle(), Color.MediumPurple);
+				CollideRect rect = new(v.X, appearTime < halfTime ? v.Y : v.Down - v.Height * percent, v.Width, v.Height * percent);
+				GeneralDraw(FightResources.Sprites.pixUnit, rect.Centre, Color.MediumPurple, rect.Size);
 			}
 
 			public override void Update()
@@ -95,12 +94,16 @@ public partial class Player : Entity
 					if (lineCount == -1)
 						return;
 
-					int last = user.purpleLineCount;
-					user.purpleLineCount = lineCount;
+					int last = user.PurpleLineCount;
+
+					if (lineCount != user.PurpleLineCount)
+						user.PurpleLineCount = lineCount;
+
 					int delta = (Move.currentLine - last) / 2;
 					Move.currentLine += delta;
 
-					user.purpleLineCount = lineCount;
+					if (lineCount != user.PurpleLineCount)
+						user.PurpleLineCount = lineCount;
 				}
 				else
 					percent *= 0.86f;
@@ -149,17 +152,53 @@ public partial class Player : Entity
 		/// The speed of the player (Default 2.5f)
 		/// </summary>
 		public float Speed { set; get; } = 2.5f;
-
-		private int jumpTimeLimit = 2;
+#if NET10_0_OR_GREATER
 		/// <summary>
 		/// The maximum amount of times the player can jump (Default 2)
 		/// </summary>
 		public int JumpTimeLimit
 		{
-			set => jumpTimeLeft = jumpTimeLimit = value;
-			private get => jumpTimeLimit;
+			set => jumpTimeLeft = field = value;
+			private get;
+		} = 2;
+		/// <summary>
+		/// The amount of lines in purple soul mode
+		/// </summary>
+		public int PurpleLineCount
+		{
+			set
+			{
+				if (SoulType == 4)
+					GameStates.InstanceCreate(new PurpleFiller(value, this));
+				field = value;
+			}
+			get;
+		} = 3;
+#else
+		private int purpleLineCount = 3;
+		/// <summary>
+		/// The amount of lines in purple soul mode
+		/// </summary>
+		public int PurpleLineCount
+		{
+			set
+			{
+				if (SoulType == 4)
+					GameStates.InstanceCreate(new PurpleFiller(value, this));
+				purpleLineCount = value;
+			}
+			get => purpleLineCount;
 		}
-
+		/// <summary>
+		/// The maximum amount of times the player can jump (Default 2)
+		/// </summary>
+		public int JumpTimeLimit
+		{
+			set => jumpTimeLeft = _jumpTimeLimit = value;
+			private get => _jumpTimeLimit;
+		}
+		private int _jumpTimeLimit = 2;
+#endif
 		/// <summary>
 		/// The jumping speed of blue soul (Default 6)
 		/// </summary>
@@ -191,16 +230,6 @@ public partial class Player : Entity
 		public float UmbrellaSpeed { set => umbrellaSpeed = value; }
 		private float umbrellaSpeed = 2/3f;
 
-		private int purpleLineCount = 3;
-		/// <summary>
-		/// The amount of lines in purple soul mode
-		/// </summary>
-		public int PurpleLineCount
-		{
-			set => GameStates.InstanceCreate(new PurpleFiller(value, this));
-			get => purpleLineCount;
-		}
-
 		private bool enabledRedShield = false;
 		/// <summary>
 		/// Whether the enable the red shield for non-green soul types
@@ -230,6 +259,7 @@ public partial class Player : Entity
 			}
 			get => isSoulSplit;
 		}
+		private bool isSoulSplit = false;
 		/// <summary>
 		/// Whether the player can use the soft falling
 		/// </summary>
@@ -260,7 +290,7 @@ public partial class Player : Entity
 
 		private float gravitySpeed = 0.0f;
 
-		private bool isSoulSplit = false, umbrellaAvailable = false;
+		private bool umbrellaAvailable = false;
 
 		/// <summary>
 		/// 是否被重力摔了
@@ -285,7 +315,7 @@ public partial class Player : Entity
 			Image = FightResources.Sprites.player;
 			collidingBox.Size = new(16);
 			Centre = new(320);
-			Depth = 0.3f;
+			Depth = DefaultValues.DEFAULT_HEART_DEPTH;
 			UpdateIn120 = true;
 
 			Image.GetData(ColorBitData);
@@ -306,6 +336,9 @@ public partial class Player : Entity
 		{
 			Player manager = FatherObject as Player;
 			manager.GameAnalyzer.PushData(new SoulListData(ID, false, GametimeF));
+			foreach (Arrow arr in GetAll<Arrow>())
+				if (arr.Mission == this)
+					arr.Mission = hearts[0];
 			controllingBox.Dispose();
 			base.Dispose();
 		}
@@ -328,8 +361,9 @@ public partial class Player : Entity
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void MergeAll(int target = 0)
 		{
-			for (int i = 1; i < hearts.Count; i++)
-				hearts[i].Merge(hearts[target]);
+			for (int i = 0; i < hearts.Count; i++)
+				if (i != target)
+					hearts[i].Merge(hearts[target]);
 		}
 
 		private int mergeTime;
@@ -344,9 +378,9 @@ public partial class Player : Entity
 			Heart v = new()
 			{
 				Speed = Speed,
-				jumpTimeLimit = jumpTimeLimit,
+				JumpTimeLimit = JumpTimeLimit,
 				SoulType = SoulType,
-				purpleLineCount = purpleLineCount,
+				PurpleLineCount = PurpleLineCount,
 				Gravity = Gravity,
 				JumpSpeed = JumpSpeed,
 				umbrellaAvailable = umbrellaAvailable,
@@ -372,9 +406,9 @@ public partial class Player : Entity
 			Heart v = new()
 			{
 				Speed = Speed,
-				jumpTimeLimit = jumpTimeLimit,
+				JumpTimeLimit = JumpTimeLimit,
 				SoulType = SoulType,
-				purpleLineCount = purpleLineCount,
+				PurpleLineCount = PurpleLineCount,
 				Gravity = Gravity,
 				JumpSpeed = JumpSpeed,
 				umbrellaAvailable = umbrellaAvailable,
@@ -395,10 +429,20 @@ public partial class Player : Entity
 			if (!Fight.FightStates.finishSelecting)
 				return;
 
-			Depth = 0.3f;
+			Depth = DefaultValues.DEFAULT_HEART_DEPTH;
 			int protectTime = (FatherObject as Player).hpControl.protectTime;
 			Color drawingColor = isOranged ? Color.Orange : CurrentMoveState.StateColor;
-			FormalDraw(Image, Centre, drawingColor * (protectTime > 0 ? ((protectTime % 30) > 8 ? 0.6f : 1) : 1) * Alpha, MathUtil.GetRadian(Rotation), ImageCentre);
+			GeneralDraw(Image, Centre, drawingColor * (protectTime > 0 && (protectTime % 30) > 8 ? 0.6f : 1) * Alpha, Vector2.One, MathUtil.GetRadian(Rotation));
+			//Advanced info
+			if (CurrentScene is SongFightingScene && (bool)UserService.Settings.GetSettingsValue("AdvancedIndicators"))
+				GeneralDraw(FightResources.Sprites.lightBall, Centre, CurrentFightingScene.JudgeState switch
+				{
+					SongSystem.JudgementState.Strict when SoulType != 0 => Color.Red,
+					SongSystem.JudgementState.Strict when SoulType == 0 => Color.White,
+					SongSystem.JudgementState.Lenient when SoulType != 1 => Color.Lime,
+					SongSystem.JudgementState.Lenient when SoulType == 1 => Color.White,
+					_ => Color.Yellow
+				}, new Vector2(0.35f), depth: Depth + 0.01f);
 			//Process purple soul lines
 			if (SoulType != 4)
 				return;
@@ -408,7 +452,7 @@ public partial class Player : Entity
 			{
 				RectangleBox box = controllingBox as RectangleBox;
 				DrawingLab.DrawLine(new Vector2(box.Centre.X, i * delta + box.Up),
-					0, purpleLineLength, 3, Color.MediumPurple, 0.1f);
+					0, purpleLineLength, 3, Color.MediumPurple, DefaultValues.DEFAULT_PURPLE_LINE_DEPTH);
 			}
 		}
 
@@ -471,8 +515,7 @@ public partial class Player : Entity
 			switch (type)
 			{
 				case 1:
-					if (!CurrentFightingScene.GreenSoulUsed)
-						CurrentFightingScene.GreenSoulUsed = true;
+					CurrentFightingScene.GreenSoulUsed = true;
 					break;
 				case 2:
 					jumpTimeLeft = JumpTimeLimit;
@@ -516,9 +559,7 @@ public partial class Player : Entity
 			float v2 = 1 - v;
 			Centre = Centre * v + mergeMission.Centre * v2;
 			for (int i = 0; i < controllingBox.Vertices.Length; i++)
-			{
 				controllingBox.Vertices[i].CurrentPosition = controllingBox.Vertices[i].CurrentPosition * v + mergeMission.controllingBox.Vertices[i].MissionPosition * v2;
-			}
 
 			controllingBox.InstanceMove(new CollideRect(controllingBox.Vertices[0].CurrentPosition, controllingBox.Vertices[2].CurrentPosition - controllingBox.Vertices[0].CurrentPosition));
 			if (++mergeTime == 25)
@@ -629,20 +670,20 @@ public partial class Player : Entity
 		{
 			if (SoulType is 2 or 5)
 			{
-				Depth -= 0.1f;
 				//Multi-Jump indicator
-				if (jumpTimeLeft > 0 && jumpTimeLimit > 1)
-					FormalDraw(Image, Centre + MathUtil.GetVector2(1, Rotation + 90), Color.Lime * (Alpha * ScreenDrawing.UIColor.A / 255f), MathUtil.GetRadian(Rotation), ImageCentre);
-				Depth -= 0.1f;
+				if (jumpTimeLeft > 0 && JumpTimeLimit > 1)
+					GeneralDraw(Image, Centre + MathUtil.GetVector2(1, Rotation + 90), Color.Lime * (Alpha * ScreenDrawing.UIColor.A / 255f), Vector2.One, MathUtil.GetRadian(Rotation), depth: Depth - 0.1f);
 				//Parachute indicator
 				if (umbrellaAvailable)
-					FormalDraw(Image, Centre - MathUtil.GetVector2(1, Rotation + 90), Color.Red * (Alpha * ScreenDrawing.UIColor.A / 255f), MathUtil.GetRadian(Rotation), ImageCentre);
-				Depth += 0.2f;
+					GeneralDraw(Image, Centre - MathUtil.GetVector2(1, Rotation + 90), Color.Red * (Alpha * ScreenDrawing.UIColor.A / 255f), Vector2.One, MathUtil.GetRadian(Rotation), depth: Depth - 0.2f);
 			}
 			DrawHeart();
+			//Shield consumption indicator
+			float? shieldConsumption = Shields?.Circle.Consumption ?? 0;
+			if (shieldConsumption > 0 && (bool)UserService.Settings.GetSettingsValue("AdvancedIndicators"))
+				GlobalResources.Font.NormalFont.Draw($"{shieldConsumption * 100:N0}%", Centre + new Vector2(10, -30), Color.White, 0.5f, Depth);
 #if DEBUG
-			GlobalResources.Font.NormalFont.CentreDraw(jumpTimeLeft + "/" + jumpTimeLimit, new Vector2(320, 150), Color.Gray);
-			DrawingLab.DrawVector(Centre, MathUtil.GetRadian(Rotation + 90));
+			GlobalResources.Font.NormalFont.CentreDraw(jumpTimeLeft + "/" + JumpTimeLimit, new Vector2(320, 150), Color.Gray);
 #endif
 		}
 		/// <summary>
@@ -695,6 +736,14 @@ public partial class Player : Entity
 			heartInstance = null;
 		else if (heartInstance?.Disposed ?? true)
 			heartInstance = hearts[0];
+		//Netplay sync
+		if (OverallNetManager.IsSuccessfullyConnected && OverallNetManager.PlayerData.IsAlive)
+		{
+			OverallNetManager.ConnectedUserData curDat = OverallNetManager.PlayerData;
+			curDat.SoulPosition = OverallNetManager.SerializeVector2Array([.. hearts.Select(heart => heart.Centre)]);
+			curDat.SoulRotation = OverallNetManager.SerializeFloatArray([.. hearts.Select(heart => heart.Rotation)]);
+			OverallNetManager.PlayerData = curDat;
+		}
 	}
 	/// <inheritdoc/>
 	public override void Draw() { }

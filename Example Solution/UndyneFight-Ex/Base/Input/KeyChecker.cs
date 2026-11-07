@@ -2,6 +2,7 @@
 using System.Text;
 using UndyneFight_Ex.Entities;
 using UndyneFight_Ex.IO;
+using UndyneFight_Ex.Server;
 using UndyneFight_Ex.UserService;
 using static UndyneFight_Ex.GameStates.KeyChecker;
 
@@ -9,96 +10,56 @@ namespace UndyneFight_Ex;
 
 public static partial class GameStates
 {
-	/// <summary>
-	/// The default key bindings
-	/// </summary>
-	public static Dictionary<InputIdentity, List<Keys>> DefaultKeys => KeyChecker.DefaultKeys;
 	#region keys
 	internal class KeyChecker
 	{
-		public KeyChecker()
-		{
-			allCheckers.Add(this);
-			foreach (KeyValuePair<InputIdentity, List<Keys>> kvp in InputKeys)
-			{
-				IdentityChecker singleChecker = new();
-				singleChecker.ResetKeyList(kvp.Value);
-				_identityCheckers.Add(kvp.Key, singleChecker);
-			}
-		}
-		public void Update(KeyboardState keyboardState)
-		{
-			foreach (IdentityChecker item in _identityCheckers.Values)
-				item.Update(keyboardState);
-		}
-		/// <summary>
-		/// Check if the key is held
-		/// </summary>
-		/// <param name="identity">The input key to detect</param>
-		/// <returns>Whether the key is held</returns>
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		internal bool IsKeyDown(InputIdentity identity) => identity != InputIdentity.None && _identityCheckers[identity].IsKeyDown();
-		/// <summary>
-		/// Check if the key is pressed
-		/// </summary>
-		/// <param name="identity">The input key to detect</param>
-		/// <returns>Whether the key is pressed</returns>
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		internal bool IsKeyPressed(InputIdentity identity) => identity != InputIdentity.None && _identityCheckers[identity].IsKeyPressed();
-		private readonly Dictionary<InputIdentity, IdentityChecker> _identityCheckers = [];
 		/// <summary>
 		/// The list of default keys for each input identity
 		/// </summary>
-		public static readonly Dictionary<InputIdentity, List<Keys>> DefaultKeys = [];
-		/// <summary>
-		/// Initializes the default keys
-		/// </summary>
-		static KeyChecker()
+		public static readonly Dictionary<InputIdentity, List<Keys>> DefaultKeys = new()
 		{
-			InputKeys.Add(InputIdentity.Confirm, [Keys.Enter, Keys.Z]);
-			InputKeys.Add(InputIdentity.Cancel, [Keys.LeftShift, Keys.X]);
-			InputKeys.Add(InputIdentity.Alternate, [Keys.Space]);
-			InputKeys.Add(InputIdentity.Special, [Keys.C]);
-			InputKeys.Add(InputIdentity.MainRight, [Keys.Right]);
-			InputKeys.Add(InputIdentity.MainDown, [Keys.Down]);
-			InputKeys.Add(InputIdentity.MainLeft, [Keys.Left]);
-			InputKeys.Add(InputIdentity.MainUp, [Keys.Up]);
-			InputKeys.Add(InputIdentity.SecondRight, [Keys.D]);
-			InputKeys.Add(InputIdentity.SecondDown, [Keys.S]);
-			InputKeys.Add(InputIdentity.SecondLeft, [Keys.A]);
-			InputKeys.Add(InputIdentity.SecondUp, [Keys.W]);
-			InputKeys.Add(InputIdentity.ThirdRight, [Keys.N]);
-			InputKeys.Add(InputIdentity.ThirdDown, [Keys.B]);
-			InputKeys.Add(InputIdentity.ThirdLeft, [Keys.V]);
-			InputKeys.Add(InputIdentity.ThirdUp, [Keys.G]);
-			InputKeys.Add(InputIdentity.FourthRight, [Keys.L]);
-			InputKeys.Add(InputIdentity.FourthDown, [Keys.K]);
-			InputKeys.Add(InputIdentity.FourthLeft, [Keys.J]);
-			InputKeys.Add(InputIdentity.FourthUp, [Keys.I]);
-			InputKeys.Add(InputIdentity.FullScreen, [Keys.F4]);
-			InputKeys.Add(InputIdentity.ScreenShot, [Keys.F12]);
-			InputKeys.Add(InputIdentity.Number1, [Keys.D1]);
-			InputKeys.Add(InputIdentity.Number2, [Keys.D2]);
-			InputKeys.Add(InputIdentity.Number3, [Keys.D3]);
-			InputKeys.Add(InputIdentity.Number4, [Keys.D4]);
-			InputKeys.Add(InputIdentity.Number5, [Keys.D5]);
-			InputKeys.Add(InputIdentity.Number6, [Keys.D6]);
-			InputKeys.Add(InputIdentity.Number7, [Keys.D7]);
-			InputKeys.Add(InputIdentity.Number8, [Keys.D8]);
-			InputKeys.Add(InputIdentity.Number9, [Keys.D9]);
-			InputKeys.Add(InputIdentity.Number0, [Keys.D0]);
-			InputKeys.Add(InputIdentity.Backspace, [Keys.Back]);
-			InputKeys.Add(InputIdentity.Reset, [Keys.R]);
-			InputKeys.Add(InputIdentity.Heal, [Keys.H]);
-			InputKeys.Add(InputIdentity.Tab, [Keys.Tab]);
-			InputKeys.Add(InputIdentity.QuickRestart, [Keys.F2]);
-			DefaultKeys = new(InputKeys);
-		}
-		private static readonly List<KeyChecker> allCheckers = [];
+			[InputIdentity.Confirm] = [Keys.Enter, Keys.Z],
+			[InputIdentity.Cancel] = [Keys.LeftShift, Keys.X],
+			[InputIdentity.Alternate] = [Keys.Space],
+			[InputIdentity.Special] = [Keys.C],
+			[InputIdentity.MainRight] = [Keys.Right],
+			[InputIdentity.MainDown] = [Keys.Down],
+			[InputIdentity.MainLeft] = [Keys.Left],
+			[InputIdentity.MainUp] = [Keys.Up],
+			[InputIdentity.SecondRight] = [Keys.D],
+			[InputIdentity.SecondDown] = [Keys.S],
+			[InputIdentity.SecondLeft] = [Keys.A],
+			[InputIdentity.SecondUp] = [Keys.W],
+			[InputIdentity.ThirdRight] = [Keys.N],
+			[InputIdentity.ThirdDown] = [Keys.B],
+			[InputIdentity.ThirdLeft] = [Keys.V],
+			[InputIdentity.ThirdUp] = [Keys.G],
+			[InputIdentity.FourthRight] = [Keys.L],
+			[InputIdentity.FourthDown] = [Keys.K],
+			[InputIdentity.FourthLeft] = [Keys.J],
+			[InputIdentity.FourthUp] = [Keys.I],
+			[InputIdentity.FullScreen] = [Keys.F4],
+			[InputIdentity.ScreenShot] = [Keys.F12],
+			[InputIdentity.Number1] = [Keys.D1],
+			[InputIdentity.Number2] = [Keys.D2],
+			[InputIdentity.Number3] = [Keys.D3],
+			[InputIdentity.Number4] = [Keys.D4],
+			[InputIdentity.Number5] = [Keys.D5],
+			[InputIdentity.Number6] = [Keys.D6],
+			[InputIdentity.Number7] = [Keys.D7],
+			[InputIdentity.Number8] = [Keys.D8],
+			[InputIdentity.Number9] = [Keys.D9],
+			[InputIdentity.Number0] = [Keys.D0],
+			[InputIdentity.Backspace] = [Keys.Back],
+			[InputIdentity.Reset] = [Keys.R],
+			[InputIdentity.Heal] = [Keys.H],
+			[InputIdentity.Tab] = [Keys.Tab],
+			[InputIdentity.QuickRestart] = [Keys.F2],
+		};
 		/// <summary>
 		/// The current key bindings for each input identity
 		/// </summary>
-		public static Dictionary<InputIdentity, List<Keys>> InputKeys { get; set; } = [];
+		public static Dictionary<InputIdentity, List<Keys>> InputKeys { get; set; } = new(DefaultKeys);
 		/// <summary>
 		/// Sets the key bindings for an input identity
 		/// </summary>
@@ -108,7 +69,8 @@ public static partial class GameStates
 		public static void SetIdentityKey(InputIdentity identity, List<Keys> mission)
 		{
 			InputKeys[identity] = mission;
-			allCheckers.ForEach(s => s._identityCheckers[identity].ResetKeyList(mission));
+			//Change binding of central manager
+			InputMgr.SetBinding(identity, mission);
 		}
 	}
 	/// <summary>
@@ -121,12 +83,36 @@ public static partial class GameStates
 	public static char CharInput { get; private set; }
 	internal static KeyboardState currentKeyState2, lastKeyState2;
 
-	private static readonly KeyChecker checker120f = new(), checker = new();
+	//Input manager for both 60fps and 125fps checking
+	internal static readonly InputManager InputMgr = new();
 
 	/// <summary>
-	/// 一个键盘操作录制器(播放)或者是一个键盘操作控制器(回放)
+	/// Keyboard recorder/replayer
 	/// </summary>
 	private static Entity keyEventBuffer;
+	internal static bool[] syncKeysHeld;
+	/// <summary>
+	/// List of keys to sync in multiplayer
+	/// </summary>
+	private static readonly List<InputIdentity> SyncKeys = [
+		InputIdentity.Confirm,
+		InputIdentity.MainUp,
+		InputIdentity.MainDown,
+		InputIdentity.MainLeft,
+		InputIdentity.MainRight,
+		InputIdentity.SecondUp,
+		InputIdentity.SecondDown,
+		InputIdentity.SecondLeft,
+		InputIdentity.SecondRight,
+		InputIdentity.ThirdUp,
+		InputIdentity.ThirdDown,
+		InputIdentity.ThirdLeft,
+		InputIdentity.ThirdRight,
+		InputIdentity.FourthUp,
+		InputIdentity.FourthDown,
+		InputIdentity.FourthLeft,
+		InputIdentity.FourthRight,
+	];
 	/// <summary>
 	/// Get the character the player is pressing
 	/// </summary>
@@ -134,40 +120,106 @@ public static partial class GameStates
 	internal static char KeysUpdate()
 	{
 		KeyboardState currentKeyState = Keyboard.GetState();
-		bool shift_pressed = currentKeyState.IsKeyDown(Keys.LeftShift) || currentKeyState.IsKeyDown(Keys.RightShift);
-		for (int i = 0; i < 256; i++)
+		//Spectating
+		if (OverallNetManager.IsSuccessfullyConnected)
 		{
-			if (!IsKeyPressed120f((Keys)i))
-				continue;
-			WordsChanged = true;
-			switch (i)
+			if (OverallNetManager.PlayerData.IsAlive)
 			{
-				case > 47 and < 58:
-					return (char)i;
-				case > 64 and < 91: //Letters
-					return (char)(i + (shift_pressed ? 0 : 32));
-				case 188:
-					return shift_pressed ? '<' : ',';
-				case 189:
-					return shift_pressed ? '_' : '-';
-				case 190:
-					return shift_pressed ? '>' : '.';
-				case 187:
-					return shift_pressed ? '+' : '=';
-				case 191:
-					return shift_pressed ? '?' : '/';
-				case 186:
-					return shift_pressed ? ':' : ';';
-				case 0x20:
-					return (char)0x20;
-				case 13:
-					return (char)13;
+				//Sync keys to spectating users (also send compact binary input packet)
+				bool[] keysPressed = new bool[SyncKeys.Count];
+				for (int i = 0; i < SyncKeys.Count; i++)
+					keysPressed[i] = IsKeyDown(SyncKeys[i]);
+				OverallNetManager.ConnectedUserData curDat = OverallNetManager.PlayerData;
+				curDat.KeysHeld = OverallNetManager.SerializeBoolArray(keysPressed);
+				OverallNetManager.PlayerData = curDat;
+
+				//Store soul positions and rotations
+				Vector2[] soulPos = null;
+				float[] soulRot = null;
+				try
+				{
+					if (Player.hearts != null && Player.hearts.Count > 0)
+					{
+						soulPos = new Vector2[Player.hearts.Count];
+						soulRot = new float[Player.hearts.Count];
+						for (int i = 0; i < Player.hearts.Count; i++)
+						{
+							soulPos[i] = Player.hearts[i].Centre;
+							soulRot[i] = Player.hearts[i].Rotation;
+						}
+					}
+				}
+				catch
+				{
+					soulPos = null;
+					soulRot = null;
+				}
+				ClientLogic.SendRawInputPacket(keysPressed, soulPos, soulRot);
+			}
+			else if (OverallNetManager.ConnectedUsers.Any(user => user.IsAlive))
+			{
+				//Check if the spectating user has the key pressed
+				if (CurrentScene is SongFightingScene sfs)
+				{
+					List<OverallNetManager.ConnectedUserData> aliveUsers = [.. OverallNetManager.ConnectedUsers.Where(u => u.IsAlive)];
+					if (aliveUsers.Count == 0)
+						syncKeysHeld = [];
+					else
+					{
+						int idx = MathUtil.Posmod(sfs.SpectatingUser, aliveUsers.Count);
+						bool[] des = null;
+						try
+						{
+							des = OverallNetManager.DeserializeBoolArray(aliveUsers[idx]?.KeysHeld ?? []);
+						}
+						catch
+						{
+							des = null;
+						}
+						if (des == null)
+							syncKeysHeld = new bool[SyncKeys.Count];
+						else if (des.Length != SyncKeys.Count)
+						{
+							syncKeysHeld = new bool[SyncKeys.Count];
+							for (int j = 0; j < Math.Min(des.Length, syncKeysHeld.Length); j++)
+								syncKeysHeld[j] = des[j];
+						}
+						else
+							syncKeysHeld = des;
+					}
+				}
+				else
+					syncKeysHeld = [];
+				for (int i = 0; i < SyncKeys.Count; i++)
+				{
+					bool val = i < syncKeysHeld.Length && (syncKeysHeld?[i] ?? false);
+					//Update sync state on the central InputManager
+					InputMgr.SetSyncPressed(SyncKeys[i], val);
+				}
 			}
 		}
+		//Handle text input via the platform TextInput event
+		if (TextInputAvailable(out char c))
+		{
+			WordsChanged = true;
+			return c;
+		}
+		//Fallback for control keys not delivered by TextInput, no else if required due to early return
+		if (IsKeyPressed120f(Keys.Enter))
+		{
+			WordsChanged = true;
+			return (char)13;
+		}
+		if (IsKeyPressed120f(Keys.Back))
+		{
+			WordsChanged = true;
+			return (char)8;
+		}
+
 		WordsChanged = false;
 		return (char)1;
 	}
-	internal static void KeysUpdate2()
+	internal static void UpdateDebugKeys()
 	{
 		lastKeyState2 = currentKeyState2;
 		currentKeyState2 = Keyboard.GetState();
@@ -200,14 +252,28 @@ public static partial class GameStates
 #endif
 		if (isInBattle)
 		{
-			if (IsKeyPressed120f(InputIdentity.QuickRestart))
+			if (IsKeyPressed120f(InputIdentity.QuickRestart) && !OverallNetManager.IsSuccessfullyConnected)
 				EndFight();
 			keyEventBuffer?.Update();
 		}
+		InputMgr.Update(currentKeyState2);
+	}
 
-		if (GameMain.Update120F)
-			checker.Update(currentKeyState2);
-		checker120f.Update(currentKeyState2);
+	/// <summary>
+	/// Text input queue for <see cref="TextInputer"/>
+	/// </summary>
+	private static readonly Queue<char> _textInputQueue = new();
+	internal static void EnqueueTextChar(char c) => _textInputQueue.Enqueue(c);
+	/// <summary>
+	/// Check if the input queue has any valid characters
+	/// </summary>
+	/// <param name="c">The character to return</param>
+	/// <returns>Whether a character is in the queue</returns>
+	private static bool TextInputAvailable(out char c)
+	{
+		bool isAvail = _textInputQueue.Count > 0;
+		c = isAvail ? _textInputQueue.Dequeue() : (char)0;
+		return isAvail;
 	}
 	/// <summary>
 	/// Check if a key is pressed (Used when <see cref="GameObject.UpdateIn120"/> is false)
@@ -215,35 +281,35 @@ public static partial class GameStates
 	/// <param name="key">The key to check</param>
 	/// <returns>Whether the key is pressed</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool IsKeyPressed(InputIdentity key) => checker.IsKeyPressed(key);
+	public static bool IsKeyPressed(InputIdentity key) => InputMgr.IsKeyPressed(key);
 	/// <summary>
 	/// Check if a key is pressed (Used when <see cref="GameObject.UpdateIn120"/> is true)
 	/// </summary>
 	/// <param name="key">The key to check</param>
 	/// <returns>Whether the key is pressed</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool IsKeyPressed120f(InputIdentity key) => checker120f.IsKeyPressed(key);
+	public static bool IsKeyPressed120f(InputIdentity key) => InputMgr.IsKeyPressed(key);
 	/// <summary>
 	/// Check if a key is being held
 	/// </summary>
 	/// <param name="key">The key to check</param>
 	/// <returns>Whether the key is held</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool IsKeyDown(InputIdentity key) => checker120f.IsKeyDown(key);
+	public static bool IsKeyDown(InputIdentity key) => InputMgr.IsKeyDown(key);
 	/// <summary>
 	/// Check if a key is pressed (Used when <see cref="GameObject.UpdateIn120"/> is true)
 	/// </summary>
 	/// <param name="key">The key to check</param>
 	/// <returns>Whether the key is pressed</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool IsKeyPressed120f(Keys key) => currentKeyState2.IsKeyDown(key) && lastKeyState2.IsKeyUp(key);
+	public static bool IsKeyPressed120f(Keys key) => InputManager.IsKeyPressed(key);
 	/// <summary>
 	/// Check if a key is being held
 	/// </summary>
 	/// <param name="key">The key to check</param>
 	/// <returns>Whether the key is held</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool IsKeyDown(Keys key) => currentKeyState2.IsKeyDown(key);
+	public static bool IsKeyDown(Keys key) => InputManager.IsKeyDown(key);
 	#endregion
 }
 /// <summary>

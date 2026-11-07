@@ -15,7 +15,7 @@ public partial class Arrow : Entity, IComparable<Arrow>
 	/// <summary>
 	/// The rotating type of the arrow (None, Reverse, Diagonal)
 	/// </summary>
-	public int RotateType => rotatingType;
+	public int RotateType { get; }
 	/// <summary>
 	/// Whether the sprite of the arrow is a void arrow
 	/// </summary>
@@ -53,12 +53,12 @@ public partial class Arrow : Entity, IComparable<Arrow>
 
 		BlockTime = shootShieldTime + (settingDelay = ArrowDelay / 16);
 		Speed = speed * ArrowSpeed;
-		this.way = way;
+		Way = way;
 		ArrowColor = color;
-		this.rotatingType = rotatingType % 2;
+		RotateType = rotatingType % 2;
 		backColor = rotatingType;
 		hasGreenFlag = rotatingType == 2;
-		missionRotation = this.way * 90f;
+		missionRotation = Way * 90f;
 		Mission = mission;
 	}
 	/// <summary>
@@ -89,11 +89,11 @@ public partial class Arrow : Entity, IComparable<Arrow>
 	/// </summary>
 	public int ArrowColor { get; private set; }
 	private int backColor;
-	private readonly int rotatingType, way;
+
 	/// <summary>
 	/// The direction of the arrow (Right, Down, Left, Up)
 	/// </summary>
-	public int Way => way;
+	public int Way { get; }
 
 	/// <summary>
 	/// The rotation with respect to the target
@@ -127,28 +127,19 @@ public partial class Arrow : Entity, IComparable<Arrow>
 	public override void Draw()
 	{
 		if (VoidMode)
-			GeneralDraw(Sprites.voidarrow[ArrowColor], Centre, new Color(0.98f, 0.98f, 0.98f, ArrowColor == 1 ? 0.75f : 0.25f) * Alpha, new(DrawingScale * Scale), GetRadian(Rotation + additiveRotation + SelfRotationOffset));
+			GeneralDraw(Sprites.voidarrow[ArrowColor], Centre, new Color(0.98f, 0.98f, 0.98f, ArrowColor == 1 ? 0.75f : 0.25f) * Alpha, DrawingScale * Scales, GetRadian(Rotation + additiveRotation + SelfRotationOffset));
 		else
 		{
-			if (NewArrowDrawingMethod)
-			{
-				//New method
-				GeneralDraw(Sprites.arrow_base[0], Centre, BaseColor[backColor] * 0.95f * Alpha, new(DrawingScale * Scale), GetRadian(Rotation + additiveRotation + SelfRotationOffset));
-				GeneralDraw(Sprites.arrow_fore[0], Centre, ForeColor[ArrowColor] * 0.95f * (GoldenMarkIntensity > 0 ? 0.75f : 1) * Alpha, new(DrawingScale * Scale), GetRadian(Rotation + additiveRotation + SelfRotationOffset));
-			}
-			else
-				//Old method
-				GeneralDraw(Sprites.arrow[ArrowColor, backColor, 0], Centre, new Color(0.98f, 0.98f, 0.98f, ArrowColor == 1 ? 0.75f : 0.25f) * Alpha, new(DrawingScale * Scale), GetRadian(Rotation + additiveRotation + SelfRotationOffset));
-		}
-
-		if (GoldenMarkIntensity > 0 && EnableGoldMark)
-		{
-			Depth += 0.02f;
-			FormalDraw(brimTex, Centre, (NewArrowDrawingMethod ? ShieldColor[ArrowColor] : Color.White) * 0.5f * Alpha, DrawingScale * Scale, GetRadian(Rotation + additiveRotation + SelfRotationOffset), brimDisplace);
+			//Outline
+			if (ArrowOutlineScale > 1)
+				GeneralDraw(Sprites.arrow[ArrowColor, backColor, 0], Centre, Color.Black * Alpha, DrawingScale * Scales * ArrowOutlineScale, GetRadian(Rotation + additiveRotation + SelfRotationOffset), depth: Depth - 0.01f);
+			//Arrow
+			GeneralDraw(Sprites.arrow[ArrowColor, backColor, 0], Centre, new Color(0.98f, 0.98f, 0.98f, ArrowColor == 1 ? 0.75f : 0.25f) * Alpha, DrawingScale * Scales, GetRadian(Rotation + additiveRotation + SelfRotationOffset));
+			if (GoldenMarkIntensity > 0 && EnableGoldMark)
+				GeneralDraw(brimTex, Centre, Color.White * 0.5f * Alpha, DrawingScale * Scales, GetRadian(Rotation + additiveRotation + SelfRotationOffset), depth: Depth + 0.02f);
 		}
 	}
 	private static readonly Texture2D brimTex = Sprites.goldenBrim;
-	private static readonly vec2 brimDisplace = new(brimTex.Width / 2, brimTex.Height / 2);
 	/// <inheritdoc/>
 	public override void Update()
 	{
@@ -157,7 +148,7 @@ public partial class Arrow : Entity, IComparable<Arrow>
 			backColor = 0;
 		if (ForceGreenBack)
 			backColor = 2;
-		Depth = 0.5f - ArrowColor / 2000f;
+		Depth = DefaultValues.DEFAULT_ARROW_DEPTH - ArrowColor * DefaultValues.DEFAULT_ARROW_COLOR_DEPTH_DELTA;
 		Vector4 extend = CurrentScene.CurrentDrawingSettings.Extending;
 		float max = MathF.Max(MathF.Max(extend.X, extend.Y), MathF.Max(extend.Z, extend.W));
 		if (Speed * (BlockTime - GametimeF) + additiveDistance > 640 * (max + 1.5f))
@@ -174,13 +165,13 @@ public partial class Arrow : Entity, IComparable<Arrow>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void ResetColor(int color)
 	{
-		Image = Sprites.arrow[ArrowColor = color, rotatingType, 0];
+		Image = Sprites.arrow[ArrowColor = color, RotateType, 0];
 		CreateShinyEffect(Color.White).DarkerSpeed = 6.4f;
 	}
 
 	/// <inheritdoc/>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public int CompareTo(Arrow obj) => MathF.Abs(obj.BlockTime - BlockTime) < 0.35f ? way.CompareTo(obj.way) : BlockTime.CompareTo(obj.BlockTime);
+	public int CompareTo(Arrow obj) => MathF.Abs(obj.BlockTime - BlockTime) < 0.35f ? Way.CompareTo(obj.Way) : BlockTime.CompareTo(obj.BlockTime);
 
 	private static List<Arrow> AllArrows => CurrentFightingScene?.Accuracy.AllArrows ?? [];
 	private static Dictionary<string, List<Arrow>> AllTaggedArrows => CurrentFightingScene?.Accuracy.TaggedArrows ?? [];

@@ -32,10 +32,10 @@ public abstract class LineCollisionBarrage(float thickness = 1) : Barrage
 	/// </summary>
 	public (Vector2 Start, Vector2 End) Points;
 	/// <summary>
-	/// The distance threshold for okay and nice
+	/// The distance threshold for okay and nice (Minimum values are 0.8 and 2.4)
 	/// </summary>
 	public (float Okay, float Nice) DistanceThreshold = (1.6f, 3.9f);
-	private float GetDistance(Heart heart) => MathUtil.DistanceToLine(heart.Centre, Points.Start, Points.End);
+	private float GetDistance(Heart heart) => heart.Centre.DistanceToLine(Points.Start, Points.End);
 	/// <inheritdoc/>
 	public override void GetCollide(Heart player)
 	{
@@ -43,7 +43,12 @@ public abstract class LineCollisionBarrage(float thickness = 1) : Barrage
 		if ((ColorType == 1 && player.IsStable) || (ColorType == 2 && player.IsMoved) || (Functions.PlayerInstance.hpControl.ScoreProtected && Functions.PlayerInstance.hpControl.protectTime > 0))
 			return;
 
-		float res = Math.Max(Math.Abs(GetDistance(player)) - 8 + Thickness, MathUtil.GetDistance(player.Centre, Centre) - (Points.End - Points.Start).Length() / 2) - Thickness;
+		float halfDist = (Points.End - Points.Start).Length() / 2;
+		//Early exit when soul is too far away from the line
+		if (Vector2.Distance(player.Centre, Centre) > halfDist + 8)
+			return;
+
+		float res = Math.Max(Math.Abs(GetDistance(player)) - 8 + Thickness, Vector2.Distance(player.Centre, Centre) - halfDist) - Thickness;
 		//Debug.WriteLine(res);
 		int offset = 3 - (int)JudgeState;
 		if (res < 0)
@@ -52,8 +57,7 @@ public abstract class LineCollisionBarrage(float thickness = 1) : Barrage
 			OkayCollision();
 		else if (res <= DistanceThreshold.Nice - offset * 1.2f)
 			NiceCollision();
-		bool needAP = (CurrentFightingScene.Mode & GameMode.PerfectOnly) != 0;
-		if (score != 3 && needAP && MarkScore)
+		if (score != DefaultValues.ScoreType.Perfect && (CurrentFightingScene.Mode & GameMode.PerfectOnly) != 0 && MarkScore)
 			MissCollision(player);
 	}
 }
@@ -63,7 +67,7 @@ public abstract class LineCollisionBarrage(float thickness = 1) : Barrage
 public abstract class CircleCollisionBarrage(float Radius) : Barrage
 {
 	/// <summary>
-	/// The distance threshold for okay and nice
+	/// The distance threshold for okay and nice (Minimum values are 0.8 and 2.4)
 	/// </summary>
 	public (float Okay, float Nice) DistanceThreshold = (1.6f, 4.2f);
 	private float GetDistance(Heart heart) => Vector2.Distance(heart.Centre, Centre);
@@ -83,7 +87,7 @@ public abstract class CircleCollisionBarrage(float Radius) : Barrage
 		else if (res <= DistanceThreshold.Nice - offset * 1.2f)
 			NiceCollision();
 		bool needAP = (CurrentFightingScene.Mode & GameMode.PerfectOnly) != 0;
-		if (score != 3 && needAP && MarkScore)
+		if (score != DefaultValues.ScoreType.Perfect && needAP && MarkScore)
 			MissCollision(player);
 	}
 }
@@ -116,7 +120,7 @@ public abstract class PerfectCollisionBarrage() : Barrage
 	/// <summary>
 	/// Local matrix based on position and rotation
 	/// </summary>
-	protected Matrix Transform => Matrix.CreateTranslation(new(-ImageCentre, 0)) * Matrix.CreateScale(Scale) * Matrix.CreateRotationZ(Rotation / 180 * float.Pi) * Matrix.CreateTranslation(new(Centre, 0));
+	protected Matrix Transform => Matrix.CreateTranslation(new(-ImageCentre, 0)) * Matrix.CreateScale(Scales.X, Scales.Y, 0) * Matrix.CreateRotationZ(Rotation / 180 * float.Pi) * Matrix.CreateTranslation(new(Centre, 0));
 	/// <summary>
 	/// Mask data to read from to prevent read per frame
 	/// </summary>
@@ -226,7 +230,7 @@ public abstract class PerfectCollisionBarrage() : Barrage
 			else if (IsColliding(Transform, player.GetTransform(), Heart.ColorBitData))
 				NiceCollision();
 		}
-		if (score != 3 && ((CurrentFightingScene.Mode & GameMode.PerfectOnly) != 0) && MarkScore)
+		if (score != DefaultValues.ScoreType.Perfect && ((CurrentFightingScene.Mode & GameMode.PerfectOnly) != 0) && MarkScore)
 			MissCollision(player);
 	}
 }
@@ -236,8 +240,11 @@ public abstract class PerfectCollisionBarrage() : Barrage
 /// </summary>
 public abstract class Barrage : Entity, ICollideAble, ICustomMotion
 {
-	private protected int score = 3;
-	private protected bool hasHit = false;
+	/// <summary>
+	/// The score the barrage gives (3 -> Perfect, 2 -> Nice, 1 -> Okay)
+	/// </summary>
+	protected DefaultValues.ScoreType score = DefaultValues.ScoreType.Perfect;
+	protected bool hasHit = false;
 	/// <summary>
 	/// Whether the barrage count towards the score
 	/// </summary>
@@ -250,7 +257,7 @@ public abstract class Barrage : Entity, ICollideAble, ICustomMotion
 	/// <br>The colors for each green soul shield</br>
 	/// <br>0-> Blue, 1 -> Red etc</br>
 	/// </summary>
-	public Color[] ShieldColorTypes { get; set; } = [Color.LightBlue, Color.LightCoral, Color.LimeGreen, Color.MediumPurple];
+	public Color[] ShieldColorTypes { get; set; } = [new(0, 128, 255, 128), new(255, 0, 0, 128), new(Color.LimeGreen, 0.5f), new(Color.MediumPurple, 0.5f)];
 	/// <summary>
 	/// The colors for normal barrages
 	/// </summary>
@@ -263,6 +270,9 @@ public abstract class Barrage : Entity, ICollideAble, ICustomMotion
 	/// Screen bounds
 	/// </summary>
 	private static readonly CollideRect screen = new CollideRect(-80, -80, 720, 560) * (1 / Functions.ScreenDrawing.ScreenScale);
+	/// <summary>
+	/// Whether the barrage had entered the screen
+	/// </summary>
 	private bool _hasBeenInside = false;
 	/// <summary>
 	/// Whether the barrage will only be displayed inside the box
@@ -293,32 +303,42 @@ public abstract class Barrage : Entity, ICollideAble, ICustomMotion
 	/// <summary>
 	/// Change bullet score to nice
 	/// </summary>
-	protected void NiceCollision()
+	protected virtual void NiceCollision()
 	{
-		if (score < 3)
+		if (score is DefaultValues.ScoreType.Miss or DefaultValues.ScoreType.Okay or DefaultValues.ScoreType.Nice)
 			return;
-		score = 2;
+		score = DefaultValues.ScoreType.Nice;
 		CreateCollideEffect(Color.LightBlue, 6f);
 	}
 	/// <summary>
 	/// Change bullet score to okay
 	/// </summary>
-	protected void OkayCollision()
+	protected virtual void OkayCollision()
 	{
-		if (score < 2)
+		if (score is DefaultValues.ScoreType.Miss or DefaultValues.ScoreType.Okay)
 			return;
-		score = 1;
+		score = DefaultValues.ScoreType.Okay;
 		CreateCollideEffect(Color.LawnGreen, 3f);
 	}
 	/// <summary>
 	/// Change bullet score to miss and damage the player
 	/// </summary>
-	protected void MissCollision(Heart player)
+	/// <param name="player">The player to damage</param>
+	protected virtual void MissCollision(Heart player)
 	{
 		if (!hasHit)
 			AdvanceFunctions.PushScore(0);
 		Functions.LoseHP(player);
 		hasHit = true;
+	}
+	/// <summary>
+	/// Damages the player if the current mode is perfect only and the barrage is not perfect
+	/// </summary>
+	/// <param name="player">The player to damage</param>
+	protected virtual void CheckPerfectOnlyCollision(Heart player)
+	{
+		if (score != DefaultValues.ScoreType.Perfect && ((CurrentFightingScene.Mode & GameMode.PerfectOnly) != 0) && MarkScore)
+			MissCollision(player);
 	}
 	/// <inheritdoc/>
 	public override void Update()
@@ -339,8 +359,8 @@ public abstract class Barrage : Entity, ICollideAble, ICustomMotion
 	/// <inheritdoc/>
 	public override void Draw()
 	{
-		if (Alpha > 0 && Image != null)
-			GeneralDraw(Image, Centre, BarrageColorTypes[ColorType] * Alpha, new(Scale), Rotation * float.Pi / 180, depth: Depth);
+		if (Alpha > 0)
+			GeneralDraw(Image, Centre, BarrageColorTypes[ColorType] * Alpha, Scales, Rotation * float.Pi / 180, depth: Depth);
 	}
 	/// <inheritdoc/>
 	public override void Dispose()

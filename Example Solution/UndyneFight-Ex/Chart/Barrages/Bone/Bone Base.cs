@@ -26,8 +26,7 @@ public class Bone : LineCollisionBarrage
 	public bool IsMasked { get; set; } = true;
 
 	private protected Color drawingColor;
-
-	private int colorType = 0;
+#if NET10_0_OR_GREATER
 	/// <summary>
 	/// The color of the bone, 0-> White, 1-> Blue, 2-> Orange
 	/// </summary>
@@ -37,7 +36,7 @@ public class Bone : LineCollisionBarrage
 		{
 			if (value is < 0 or > 2)
 				throw new ArgumentOutOfRangeException(nameof(value), value, "The value can only be 0, 1 or 2");
-			base.ColorType = colorType = (int)value;
+			base.ColorType = (int)(field = value);
 			drawingColor = value switch
 			{
 				0 => Color.White,
@@ -46,8 +45,31 @@ public class Bone : LineCollisionBarrage
 				_ => drawingColor
 			};
 		}
-		get => colorType;
+		get;
+	} = 0;
+#else
+	/// <summary>
+	/// The color of the bone, 0-> White, 1-> Blue, 2-> Orange
+	/// </summary>
+	public new float ColorType
+	{
+		set
+		{
+			if (value is < 0 or > 2)
+				throw new ArgumentOutOfRangeException(nameof(value), value, "The value can only be 0, 1 or 2");
+			base.ColorType = (int)(_colorType = value);
+			drawingColor = value switch
+			{
+				0 => Color.White,
+				1 => new Color(110, 203, 255, 255),
+				2 => Color.Orange,
+				_ => drawingColor
+			};
+		}
+		get => _colorType;
 	}
+	private float _colorType = 0;
+#endif
 	/// <summary>
 	/// Sets the drawing color of the bone
 	/// </summary>
@@ -76,7 +98,7 @@ public class Bone : LineCollisionBarrage
 		if (Length < 0)
 			return;
 		if (AutoDepth)
-			Depth = 0.5f - colorType * 0.02f;
+			Depth = 0.5f - ColorType * 0.02f;
 		Vector2 delta = GetVector2(Length / 2f, Rotation + 90);
 		col Col = Color.Lerp(Color.Transparent, drawingColor, Alpha);
 		GeneralDraw(Sprites.pixUnit, Centre, Col, new Vector2(Length - 6, boneWidth), GetRadian(Rotation + 90));
@@ -89,8 +111,9 @@ public class Bone : LineCollisionBarrage
 	public override void Update()
 	{
 		controlLayer = IsMasked ? Surface.Hidden : Surface.Normal;
-		Points.Start = Centre + GetVector2(Length / 2, Rotation + 90);
-		Points.End = Centre - GetVector2(Length / 2, Rotation + 90);
+		Vector2 delta = GetVector2(Length / 2, Rotation + 90);
+		Points.Start = Centre + delta;
+		Points.End = Centre - delta;
 		//Process auto dispose
 		if (!autoDispose)
 			return;

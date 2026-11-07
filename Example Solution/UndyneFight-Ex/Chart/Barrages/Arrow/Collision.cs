@@ -44,7 +44,7 @@ public partial class Arrow
 	private bool isSoundPlayed = false;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private void PlayHitSound(float scale)
+	private void PlayHitSound(float scale, DefaultValues.ScoreType score)
 	{
 		if (VolumeFactor <= 0.01f || isSoundPlayed)
 			return;
@@ -55,7 +55,13 @@ public partial class Arrow
 			0 => Ding,
 			1 => ArrowStuck,
 			_ => throw new Exception()
-		}, SpearBlockingVolume / 100f * scale * VolumeFactor);
+		}, SpearBlockingVolume / 100f * scale * VolumeFactor, score switch
+		{
+			DefaultValues.ScoreType.Okay => -0.25f,
+			DefaultValues.ScoreType.Nice => -0.125f,
+			DefaultValues.ScoreType.Perfect => 0,
+			_ => 0
+		});
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void Init()
@@ -91,13 +97,13 @@ public partial class Arrow
 		}
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private void SmartSound() => PlayHitSound(JudgeType switch
+	private void SmartSound(DefaultValues.ScoreType score) => PlayHitSound(JudgeType switch
 	{
 		JudgementType.Default => 1,
 		JudgementType.Hold => 0.5f,
 		JudgementType.Tap => 2,
 		_ => 0
-	});
+	}, score);
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void CheckCollide()
 	{
@@ -107,7 +113,7 @@ public partial class Arrow
 		bool attachedGB = Mission.Shields.AttachedGB(ArrowColor);
 
 		if (TimeDelta < settingDelay + 0.25f && settingDelay > 1.5f && !isSoundPlayed)
-			SmartSound();
+			SmartSound(DefaultValues.ScoreType.Perfect);
 
 		//AUTOPLAY
 		bool auto = false;
@@ -119,16 +125,16 @@ public partial class Arrow
 				if (DebugState.ShieldAuto[i] && ArrowColor == i)
 				{
 					auto = true;
-					if (BlockTime - GametimeF <= 1 && curShieldWay != way)
+					if (BlockTime - GametimeF <= 1 && curShieldWay != Way)
 					{
-						p.Shields.Rotate(i, way);
+						p.Shields.Rotate(i, Way);
 						p.Shields.ValidRotated();
 					}
 				}
 		}
 
 		float trueTime = Mission.Shields.GetCollideChecker(ArrowColor).TimeOf(Way);
-		bool sameDir = Mission.Shields.InSameDir(ArrowColor, way);
+		bool sameDir = Mission.Shields.InSameDir(ArrowColor, Way);
 		if (JudgeType == JudgementType.Tap)
 		{
 			sameDir = false;
@@ -158,9 +164,9 @@ public partial class Arrow
 				timeMax += 2.75f;
 			if (time > timeMax)
 				goto CheckDamage;
-			int score = GetScore(time * 1.125f);
+			DefaultValues.ScoreType score = GetScore(time * 1.125f);
 			HitScore(score, time);
-			PlayHitSound(2);
+			PlayHitSound(2, score);
 
 			Dispose();
 		}
@@ -170,9 +176,9 @@ public partial class Arrow
 				goto CheckDamage;
 			if (trueTime > 5f)
 				goto CheckDamage;
-			int score = GetScore(trueTime);
+			DefaultValues.ScoreType score = GetScore(trueTime);
 			HitScore(score, TimeDelta);
-			PlayHitSound(0.5f);
+			PlayHitSound(0.5f, score);
 			Dispose();
 		}
 		else if (TimeDelta < 0.5f || (attachedGB && TimeDelta < 12f && !auto))
@@ -198,8 +204,8 @@ public partial class Arrow
 			if (JudgeType == JudgementType.Tap)
 				timeMax += 2f;
 
-			int score;
-			if (trueTime > timeMax && way != curShieldWay)
+			DefaultValues.ScoreType score;
+			if (trueTime > timeMax && Way != curShieldWay)
 				goto CheckDamage;
 			if (TimeDelta < -0.5f && trueTime < timeMax)
 				trueTime = TimeDelta;
@@ -217,7 +223,7 @@ public partial class Arrow
 				JudgementState.Strict => 1.5f,
 				_ => throw new ArgumentException($"{JudgeState} is not in proper form", nameof(JudgeState)),
 			};
-			if (score <= 1)
+			if (score is DefaultValues.ScoreType.Miss or DefaultValues.ScoreType.Okay)
 			{
 				if (time > 9f / div && del >= weakPerfectNegative + 0.6f)
 					goto CheckDamage;
@@ -226,7 +232,7 @@ public partial class Arrow
 			}
 
 			HitScore(score, time);
-			PlayHitSound(1f);
+			PlayHitSound(1f, score);
 			Dispose();
 			return;
 		}
@@ -244,22 +250,22 @@ public partial class Arrow
 			else
 				playerHurt.CreateInstance().Play();
 			if (currentScene is SongFightingScene songFightScene)
-				songFightScene.Accuracy.PushDelta(0, 0, ArrowColor, way, Mission.Shields);
+				songFightScene.Accuracy.PushDelta(0, 0, ArrowColor, Way, Mission.Shields);
 			return;
 		}
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private int GetScore(float time) => time switch
+	private DefaultValues.ScoreType GetScore(float time) => time switch
 	{
-		float x when x >= strongPerfectNegative && x <= strongPerfectPositive => 3,
-		float x when x >= weakPerfectNegative && x <= weakPerfectPositive => x > strongPerfectPositive ? 4 : 5,
-		float x when x >= niceNegative && x <= nicePositive => 2,
-		_ => 1
+		float x when x >= strongPerfectNegative && x <= strongPerfectPositive => DefaultValues.ScoreType.Perfect,
+		float x when x >= weakPerfectNegative && x <= weakPerfectPositive => x > strongPerfectPositive ? DefaultValues.ScoreType.PerfectE : DefaultValues.ScoreType.PerfectL,
+		float x when x >= niceNegative && x <= nicePositive => DefaultValues.ScoreType.Nice,
+		_ => DefaultValues.ScoreType.Okay
 	};
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private void HitScore(int score, float time)
+	private void HitScore(DefaultValues.ScoreType score, float time)
 	{
 		if (!NoScore)
 			Fight.AdvanceFunctions.PushScore(score);
@@ -269,10 +275,10 @@ public partial class Arrow
 		if (GameStates.CurrentScene is SongFightingScene)
 		{
 			if (JudgeType != JudgementType.Tap)
-				sameDir = Mission.Shields.InSameDir(ArrowColor, way);
+				sameDir = Mission.Shields.InSameDir(ArrowColor, Way);
 
 			if (!sameDir)
-				CurrentFightingScene.PlayerInstance.GameAnalyzer.PushData(new Player.ArrowData(time, score, GametimeF));
+				CurrentFightingScene.PlayerInstance.GameAnalyzer.PushData(new Player.ArrowData(time, (int)score, GametimeF));
 
 			float abs = MathF.Abs(time);
 			if (abs <= 2.0f && JudgeState == JudgementState.Strict && !sameDir && !NoScore)
@@ -280,12 +286,12 @@ public partial class Arrow
 
 			if (sameDir && !hasGreenFlag)
 				time = 0;
-			else if (score == 3 && time > 0)
+			else if (score == DefaultValues.ScoreType.Perfect && time > 0)
 				time /= 1.9f;
 
-			CurrentFightingScene.Accuracy.PushDelta(time, score, ArrowColor, way, Mission.Shields);
+			CurrentFightingScene.Accuracy.PushDelta(time, score, ArrowColor, Way, Mission.Shields);
 
-			if ((preciseWarning ? (score != 3) : (score <= 2)) && JudgeType != JudgementType.Hold && !ForceDisableTimeTips)
+			if ((preciseWarning ? (score != DefaultValues.ScoreType.Perfect) : (score is DefaultValues.ScoreType.Miss or DefaultValues.ScoreType.Okay or DefaultValues.ScoreType.Nice)) && JudgeType != JudgementType.Hold && !ForceDisableTimeTips)
 			{
 				Color tipscolor = Color.CornflowerBlue;
 				float xVec = Heart.Centre.Y + 30;
@@ -309,7 +315,7 @@ public partial class Arrow
 					tipscolor = Color.MediumPurple;
 					xVec = Heart.Centre.X - 30;
 				}
-				if (score >= 4)
+				if (score is DefaultValues.ScoreType.PerfectE or DefaultValues.ScoreType.PerfectL)
 					tipscolor = Color.Lerp(tipscolor, Color.Lime * 0.7f, 0.45f);
 				if (time > -1)
 					CreateEntity(new TimeTips(new(xVec, Heart.Centre.Y - 40), tipscolor, "early", new(0, 1)));
@@ -317,7 +323,7 @@ public partial class Arrow
 					CreateEntity(new TimeTips(new(xVec, Heart.Centre.Y + 40), tipscolor, "late", new(0, -1)));
 			}
 		}
-		if (score < 3 && score != 0 && ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0)
+		if (score is DefaultValues.ScoreType.Okay or DefaultValues.ScoreType.Nice && ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0)
 		{
 			Fight.AdvanceFunctions.PushScore(0);
 			LoseHP(Mission);
@@ -326,14 +332,14 @@ public partial class Arrow
 			Mission.Shields.ValidRotated();
 		if (hasGreenFlag)
 			Mission.Shields.ValidRotated();
-		if (score == 3)
+		if (score == DefaultValues.ScoreType.Perfect)
 			Mission.Shields.Consume(0.25f);
 	}
 
 	/// <inheritdoc/>
 	public override void Dispose()
 	{
-		InstanceCreate(new BreakArrow(Speed, Rotation + additiveRotation + (Mission.Shields.GetShield(ArrowColor)?.deltaRotation ?? 0) * 6, ArrowColor, rotatingType, Centre, Scale * DrawingScale));
+		InstanceCreate(new BreakArrow(Speed, Rotation + additiveRotation + (Mission.Shields.GetShield(ArrowColor)?.deltaRotation ?? 0) * 6, ArrowColor, RotateType, Centre, Scales * DrawingScale));
 		_ = AllArrows?.Remove(this);
 
 		base.Dispose();

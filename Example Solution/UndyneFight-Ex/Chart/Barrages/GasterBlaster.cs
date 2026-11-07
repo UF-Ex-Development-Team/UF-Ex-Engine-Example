@@ -37,7 +37,7 @@ public abstract class GasterBlaster : Barrage
 	/// </summary>
 	public bool OverrideRotation { get; set; } = false;
 
-	private protected float depth_ = 0.6f;
+	private protected float depth_ = DefaultValues.DEFAULT_NORMAL_GB_DEPTH;
 	private protected static int _blasterCount = 0;
 	private protected Color drawingColor = Color.White;
 	private protected static CollideRect screen = new CollideRect(-250, -250, 890, 730) * ScreenDrawing.ScreenScale;
@@ -55,7 +55,7 @@ public abstract class GasterBlaster : Barrage
 	public override void Draw()
 	{
 		Depth = depth_;
-		FormalDraw(Image, Centre, drawingColor * alpha, size, GetRadian(this is NormalGB ? Rotation : missionRotation), ImageCentre);
+		GeneralDraw(Image, Centre, drawingColor * alpha, size, GetRadian(this is NormalGB ? Rotation : missionRotation));
 		//Early exit in cases beam should not be drawn
 		if (appearTime < waitingTime || laserSize.Y <= 0 || this is GreenSoulGB)
 			return;
@@ -209,7 +209,7 @@ public class GreenSoulGB : GasterBlaster
 			color ^= 1;
 		way = Posmod(way, 4);
 		timeDelta = Settings.SettingsManager.DataLibrary.ArrowDelay / 16f;
-		depth_ = 0.466f + _blasterCount++ / 1000f;
+		depth_ = DefaultValues.DEFAULT_GREEN_SOUL_GB_DEPTH + _blasterCount++ * 0.001f - color * 0.001f;
 		shootShieldTime += Gametime;
 		laserSize.X = 1.0f;
 		size = new Vector2(1.0f, 0.7f);
@@ -217,7 +217,8 @@ public class GreenSoulGB : GasterBlaster
 		waitingTime = shootShieldTime - Gametime;
 		this.duration = duration;
 		Way = way;
-		drawingColor = ShieldColorTypes[DrawingColor = color];
+		DrawingColor = color;
+		drawingColor = Settings.SettingsManager.DataLibrary.OldBlasterColors ? ClassicColorTypes[DrawingColor] : ShieldColorTypes[DrawingColor];
 		basicRotation = Rotation = (way * 90 + 180) % 360;
 		Position = way switch
 		{
@@ -228,6 +229,7 @@ public class GreenSoulGB : GasterBlaster
 			_ => throw new ArgumentOutOfRangeException(nameof(way), "Way must be between 0 and 3"),
 		};
 	}
+	private static readonly Color[] ClassicColorTypes = [Color.LightBlue, Color.LightCoral, Color.LimeGreen, Color.MediumPurple];
 	private readonly float basicRotation;
 
 	internal bool Follow { private get; set; } = false;
@@ -277,6 +279,10 @@ public class GreenSoulGB : GasterBlaster
 					PushDown();
 					if ((Follow && ((missionPlayer.Centre - _lastPlayerPos).LengthSquared() > 0.1f)) || missionPlayer.Rotation != _lastPlayerRot)
 						ArrangePos();
+					else
+					{
+						Centre = Way is 0 or 2 ? new(Centre.X, missionPlayer.Centre.Y) : new(missionPlayer.Centre.X, Centre.Y);
+					}
 					GetCollide();
 				}
 				Rotation = missionRotation * 0.12f + Rotation * 0.88f;
@@ -286,7 +292,7 @@ public class GreenSoulGB : GasterBlaster
 		}
 		else
 		{
-			missionPlace = Rotate(Position, missionPlayer.Rotation) + missionPlayer.Centre;
+			missionPlace = Position.RotateDegrees(missionPlayer.Rotation) + missionPlayer.Centre;
 			if (adjustedWaitingTime - appearTime <= 54)
 			{
 				if (appearTime < adjustedWaitingTime)
@@ -294,8 +300,12 @@ public class GreenSoulGB : GasterBlaster
 				Rotation = missionRotation * 0.12f + Rotation * 0.88f;
 				if (alpha < 1)
 					alpha += 0.1f;
-				if (ParticleEffect is not null)
+#if NET10_0_OR_GREATER
+				ParticleEffect?.Centre = Centre;
+#else
+				if (ParticleEffect != null)
 					ParticleEffect.Centre = Centre;
+#endif
 			}
 			if ((int)(adjustedWaitingTime - appearTime) == 55)
 			{
@@ -350,11 +360,11 @@ public class GreenSoulGB : GasterBlaster
 		Color finCol = drawingColor * beamAlpha;
 		Depth -= 0.001f;
 		//Override beam drawing
-		DrawingLab.DrawLine(laserPlace + GetVector2(2, missionRotation), Centre + GetVector2(Image.Width * size.X / 2 + 10, missionRotation), (laserSize * size).Y * Sprites.GBLaser.Height, finCol, Depth);
+		DrawingLab.DrawLine(laserPlace + GetVector2(2, missionRotation), Centre + GetVector2(Image.Width * size.X * 0.51f + 15, missionRotation), (laserSize * size).Y * Sprites.GBLaser.Height, finCol, Depth);
 		for (int i = 0; i < 3; i++)
-			DrawingLab.DrawLine(Centre + GetVector2(Image.Width * size.X * (0.5f - i * 0.1f) + 10, missionRotation), Centre + GetVector2(Image.Width * size.X * (0.4f - i * 0.1f) + 10, missionRotation), (laserSize * size).Y * Sprites.GBLaser.Height * (0.8f - i * 0.2f), finCol, Depth);
+			DrawingLab.DrawLine(Centre + GetVector2(Image.Width * size.X * (0.5f - i * 0.1f) + 15, missionRotation), Centre + GetVector2(Image.Width * size.X * (0.42f - i * 0.1f) + 15, missionRotation), (laserSize * size).Y * Sprites.GBLaser.Height * (0.8f - i * 0.2f), finCol, Depth);
 		//Stuck drawing
-		FormalDraw(StuckTexture, laserPlace + GetVector2(2, missionRotation), finCol, 1.33f * laserSize.Y, GetRadian(missionRotation + 180), new Vector2(0, 35));
+		GeneralDraw(StuckTexture, laserPlace + GetVector2(2, missionRotation), finCol, new Vector2(1.33f * laserSize.Y), GetRadian(missionRotation + 180), new Vector2(0, 35), depth: Depth + 0.01f);
 	}
 	/// <inheritdoc/>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -370,17 +380,17 @@ public class GreenSoulGB : GasterBlaster
 			{
 				if (appearTime - waitingTime - timeDelta < 2.5f)
 					return;
-				score = Math.Min(2, score);
+				score = (DefaultValues.ScoreType)Math.Min(2, (int)score);
 				return;
 			}
 			if (alpha < 0.97f)
 			{
 				if (alpha > 0.6f)
 				{
-					score = Math.Min(2, score);
+					score = (DefaultValues.ScoreType)Math.Min(2, (int)score);
 					return;
 				}
-				score = 1;
+				score = DefaultValues.ScoreType.Okay;
 			}
 			LoseHP(missionPlayer);
 			if (!hasHit)
@@ -391,15 +401,15 @@ public class GreenSoulGB : GasterBlaster
 			}
 		}
 		else if (pushDelta > 14 && stuck)
-			score = Math.Min(2, score);
+			score = (DefaultValues.ScoreType)Math.Min(2, (int)score);
 		else if (pushDelta > 6 && stuck)
-			score = 1;
+			score = DefaultValues.ScoreType.Okay;
 	}
 	/// <inheritdoc/>
 	public override void Dispose()
 	{
 		_blasterCount--;
-		if (score != 3 && ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0)
+		if (score != DefaultValues.ScoreType.Perfect && ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0)
 		{
 			if (!hasHit)
 				PushScore(0);
@@ -452,7 +462,7 @@ public class NormalGB : GasterBlaster, ICollideAble
 		this.missionPlace = missionPlace;
 		this.size = size;
 		laserSize.X = 1.0f;
-		Depth = 0.6f;
+		Depth = DefaultValues.DEFAULT_NORMAL_GB_DEPTH;
 		this.waitingTime = waitingTime;
 		this.duration = duration;
 
@@ -483,7 +493,7 @@ public class NormalGB : GasterBlaster, ICollideAble
 
 		float dist = Rotation == 0
 			? Centre.X - heart.Centre.X //If the blaster is colinear, directly compare the X distance
-			: MathUtil.ScalarProject(new(MathF.Tan(GetRadian(Rotation)), -1), heart.Centre - Centre);
+			: new Vector2(MathF.Tan(GetRadian(Rotation)), -1).ScalarProject(heart.Centre - Centre);
 		float res = Math.Abs(dist) - (32 * laserSize.Y * size.Y - 2);
 
 		if (res < 0)
@@ -500,7 +510,7 @@ public class NormalGB : GasterBlaster, ICollideAble
 			OkayCollision();
 		else if (res <= 5.4f)
 			NiceCollision();
-		if (score != 3 && ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0)
+		if (score != DefaultValues.ScoreType.Perfect && ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0)
 		{
 			if (!hasHit)
 				PushScore(0);

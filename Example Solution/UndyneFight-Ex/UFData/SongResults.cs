@@ -71,7 +71,7 @@ public struct SongResult(SkillMark currentMark = SkillMark.Failed, int score = 0
 	[JsonInclude]
 	public int Score = score;
 	[JsonInclude]
-	public bool AC = ac;
+	public bool FC = ac;
 	[JsonInclude]
 	public bool AP = ap;
 	[JsonInclude]
@@ -83,7 +83,7 @@ public struct SongResult(SkillMark currentMark = SkillMark.Failed, int score = 0
 			(SkillMark)Math.Min((int)result1.CurrentMark, (int)result2.CurrentMark),
 			Math.Max(result1.Score, result2.Score),
 			MathF.Max(result1.Accuracy, result2.Accuracy),
-			result1.AC || result2.AC,
+			result1.FC || result2.FC,
 			result2.AP || result1.AP
 			);
 		return result;
@@ -108,7 +108,7 @@ public enum Difficulty
 }
 
 [Flags]
-public enum GameMode
+public enum GameMode : byte
 {
 	None = 0,
 	NoHit = 1,

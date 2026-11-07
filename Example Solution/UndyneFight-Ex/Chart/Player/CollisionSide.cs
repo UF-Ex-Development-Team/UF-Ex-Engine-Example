@@ -13,7 +13,9 @@ public partial class Player
 				private struct CollisionData()
 				{
 					public bool BlockedArrow = false;
-					public float TimeDelayed = FarTime, TapTime = FarTime, HoldTime = FarTime;
+					public float TimeDelayed = FarTime;
+					public float TapTime = FarTime;
+					public float HoldTime = FarTime;
 				}
 				private readonly CollisionData[] collisionData = [new(), new(), new(), new()];
 

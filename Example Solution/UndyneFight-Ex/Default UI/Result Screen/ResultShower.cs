@@ -1,6 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Newtonsoft.Json.Linq;
 using UndyneFight_Ex.GameInterface;
+using UndyneFight_Ex.Server;
 using UndyneFight_Ex.SongSystem;
 using UndyneFight_Ex.UserService;
 using static UndyneFight_Ex.Entities.SimplifiedEasing;
@@ -15,16 +15,16 @@ internal partial class StateShower
 	internal partial class ResultShower : Entity
 	{
 		private readonly RatingResult ratingResult;
-		private readonly AnalyzeShow analyzeShow;
-
 		private readonly SongPlayData playData;
 		private (float Score, float Miss, float Okay, float Nice, float Perfect, float PerfectE, float PerfectL, float Combo, float PAccuracy, float SAccuracy) DisplayValues = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+		private readonly int DeathCount;
+		private readonly float DamageTaken;
 		public ResultShower(StateShower scoreResult, Player.Analyzer analyzer)
 		{
-			AddChild(analyzeShow = new(analyzer));
 			judgeState = scoreResult.judgeState;
 			gamePlayed = scoreResult.wave;
-			topText = Localization.GetText($"Difficulty[{difficulty}]");
+			DamageTaken = scoreResult.damageTaken;
+			DeathCount = scoreResult.deathCount;
 			topColor = difficulty switch
 			{
 				0 => Color.White,
@@ -43,12 +43,11 @@ internal partial class StateShower
 			perfectECount = scoreResult.perfectE;
 			perfectLCount = scoreResult.perfectL;
 			maxCombo = scoreResult.maxCombo;
-			totalNote = missCount + okayCount + niceCount + perfectCount;
-			perfectPercent = perfectCount / (1.0f * totalNote);
-			hitPercent = (okayCount + niceCount + perfectCount) / (1.0f * totalNote);
+			totalBarrage = missCount + okayCount + niceCount + perfectCount;
+			perfectPercent = perfectCount / (1.0f * totalBarrage);
 			score = scoreResult.score;
 			collidingBox = new CollideRect(96, 140, 448, 200);
-			AP = (AC = scoreResult.miss == 0 && totalNote > 0) && scoreResult.okay == 0 && scoreResult.nice == 0;
+			AP = (AC = scoreResult.miss == 0 && totalBarrage > 0) && scoreResult.okay == 0 && scoreResult.nice == 0;
 			GenerateMark();
 			UpdateIn120 = true;
 			chartIllustration = GlobalData.GetWavePaint(gamePlayed);
@@ -56,42 +55,25 @@ internal partial class StateShower
 			#region Score saving
 			SongResult result = new(mark, score, scoreResult.judgeState != JudgementState.Lenient ? GetScorePercent() : 0, AC, AP);
 			SongInformation att = gamePlayed.Attributes;
-			playData = att != null && att.ComplexDifficulty.ContainsKey((Difficulty)difficulty)
-				? new SongPlayData()
-				{
-					Result = result,
-					Name = songName,
-					GameMode = scoreResult.mode,
-					CompleteThreshold = att.CompleteDifficulty[(Difficulty)difficulty],
-					ComplexThreshold = att.ComplexDifficulty[(Difficulty)difficulty],
-					APThreshold = att.APDifficulty[(Difficulty)difficulty],
-					Difficulty = (Difficulty)difficulty
-				}
-				: new SongPlayData()
-				{
-					Result = result,
-					Name = songName,
-					GameMode = scoreResult.mode,
-					CompleteThreshold = 0,
-					ComplexThreshold = 0,
-					APThreshold = 0,
-					Difficulty = (Difficulty)difficulty
-				};
-			if (float.IsNaN(playData.CompleteThreshold))
-				playData.CompleteThreshold = 0;
-			if (float.IsNaN(playData.ComplexThreshold))
-				playData.ComplexThreshold = 0;
-			if (float.IsNaN(playData.APThreshold))
-				playData.APThreshold = 0;
-			if (((int)scoreResult.mode & (int)GameMode.NoGreenSoul) != 0 && CurrentFightingScene.GreenSoulUsed)
+			playData = new SongPlayData()
+			{
+				Result = result,
+				Name = songName,
+				GameMode = scoreResult.mode,
+				CompleteThreshold = (att?.CompleteDifficulty.TryGetValue((Difficulty)difficulty, out float comThres) ?? false) ? comThres : 0,
+				ComplexThreshold = (att?.ComplexDifficulty.TryGetValue((Difficulty)difficulty, out float cpxThres) ?? false) ? cpxThres : 0,
+				APThreshold = (att?.APDifficulty.TryGetValue((Difficulty)difficulty, out float apThres) ?? false) ? apThres : 0,
+				Difficulty = (Difficulty)difficulty
+			};
+			if ((scoreResult.mode & GameMode.NoGreenSoul) != 0 && CurrentFightingScene.GreenSoulUsed)
 				PushModifiers(Localization.GetText("GameModifiers.NoGreenSoul"));
-			if (((int)scoreResult.mode & (int)GameMode.Practice) != 0 && CurrentFightingScene.HPReached0)
+			if ((scoreResult.mode & GameMode.Practice) != 0 && CurrentFightingScene.HPReached0)
 				PushModifiers(Localization.GetText("GameModifiers.Practice"));
-			if (((int)scoreResult.mode & (int)GameMode.Autoplay) != 0)
+			if ((scoreResult.mode & GameMode.Autoplay) != 0)
 				PushModifiers(Localization.GetText("GameModifiers.Autoplay"));
 			if (CurrentFightingScene.ItemUsed)
 				PushModifiers(Localization.GetText("GameModifiers.Items"));
-			rerate = ReRate(CurrentAccuracy = GetScorePercent());
+			rerate = RatingCalculator.ReRate(CurrentAccuracy = GetScorePercent());
 			if (ModifiersUsed)
 				return;
 
@@ -100,22 +82,30 @@ internal partial class StateShower
 			ModesUsed = Localization.GetText("GameModifiers.None");
 			if (CurrentUser == null)
 				return;
-			previousAccuracy = CurrentUser.SongManager.SongPlayed(playData.Name) ? CurrentUser.SongManager.Acquire(playData.Name).CurrentSongStates[(Difficulty)difficulty].Accuracy : 0;
 			oldRating = CurrentUser.Skill;
 			int oldCoins = CurrentUser.ShopData.CashManager.Coins;
 			float constant = AC ? (AP ? playData.APThreshold : playData.ComplexThreshold) : playData.CompleteThreshold;
-			float resultMultiplier = AC ? (AP ? 2 : 1.5f) : 1;
+			float coinMultiplier = AC ? (AP ? 2 : 1.5f) : 1;
 			float judgementMultiplier = scoreResult.judgeState switch
 			{
 				JudgementState.Lenient => 0.9f,
 				JudgementState.Balanced => 1,
 				_ => 1.2f,
 			};
-			CurrentUser.ShopData.CashManager.Coins += (int)(float.Abs(constant) * 10 * GetRandom(0.9f, 1.1f) * resultMultiplier * judgementMultiplier);
+			CurrentUser.ShopData.CashManager.Coins += (int)(float.Abs(constant) * 10 * GetRandom(0.9f, 1.1f) * coinMultiplier * judgementMultiplier);
+#if !DEBUG
+			if (!DebugState.IsBeta)
+#endif
 			RecordMark(songName, difficulty, result);
-			Save();
 			coinAdded = CurrentUser.ShopData.CashManager.Coins - oldCoins;
 			curRating = CurrentUser.Skill;
+			//Upload new skill to server
+			if (OverallNetManager.IsSuccessfullyConnected)
+			{
+				OverallNetManager.ConnectedUserData curDat = OverallNetManager.PlayerData;
+				OverallNetManager.PlayerData.Skill = curRating;
+				OverallNetManager.PlayerData = curDat;
+			}
 			ratingResult = new(oldRating, curRating);
 			AddChild(ratingResult);
 			if (coinAdded > 0)
@@ -151,6 +141,13 @@ internal partial class StateShower
 				ExtraState ^= ExtraResultScreens.ItemUnlocked;
 				Save();
 			}
+			if (OverallNetManager.IsSuccessfullyConnected)
+			{
+				OverallNetManager.ConnectedUserData curDat = OverallNetManager.PlayerData;
+				curDat.ChartEnded = true;
+				curDat.IsReady = false;
+				OverallNetManager.PlayerData = curDat;
+			}
 		}
 		private readonly List<StoreItem> ValidatedItems = [];
 		[Flags]
@@ -166,58 +163,7 @@ internal partial class StateShower
 		private readonly Texture2D chartIllustration;
 		#region Get Result
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private static Vector3 SingleCalculateRating(Vector3 Dif, float acc)
-		{
-			static Tuple<float, float, float> GetDifficulty(IWaveSet waveSet, Difficulty difficulty)
-			{
-				SongInformation Information = waveSet.Attributes;
-				if (Information is null)
-					return new(0, 0, 0);
-				_ = Information.CompleteDifficulty.TryGetValue(difficulty, out float dif1);
-				_ = Information.ComplexDifficulty.TryGetValue(difficulty, out float dif2);
-				_ = Information.APDifficulty.TryGetValue(difficulty, out float dif3);
-				return new(dif1, dif2, dif3);
-			}
-			float apMax = 0, fcMax = 0, completeMax = 0;
-			SortedSet<float> alls = [];
-			foreach (IWaveSet waveSet in GlobalData.WaveCache.Values)
-			{
-				for (int j = 0; j <= 5; j += 1)
-				{
-					Tuple<float, float, float> v = GetDifficulty(waveSet, (Difficulty)j);
-					completeMax = MathF.Max(completeMax, v.Item1);
-					fcMax = MathF.Max(fcMax, v.Item3);
-					apMax = MathF.Max(apMax, v.Item3);
-					_ = alls.Add(v.Item2);
-				}
-			}
-
-			for (int i = 0; alls.Count < 7; i++)
-				_ = alls.Add(0 - i * 0.00001f);
-			float sum = 0.001f, ideal = 0.001f;
-			for (int i = 0; i < 7; i++)
-			{
-				float g = MathF.Max(0, alls.Max);
-				_ = alls.Remove(g);
-				ideal += g;
-			}
-			sum += Dif.Y * acc;
-			float rating0 = sum / ideal * 85f;
-			float rating1 = Dif.Z / apMax * 5f;
-			float rating2 = Dif.X / completeMax * 5f;
-			return new(rating0, rating1, rating2);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private static float ReRate(float accuracy)
-		{
-			if (accuracy > 1)
-				return 1;
-			float del = 1 - accuracy;
-			float lim = MathF.Pow(del * 3, 0.7f) / 2.4f + del * 2.0f;
-			return MathF.Max(0, 1 - lim);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private float GetScorePercent() => (totalNote == 0) ? 0 : MathF.Min(1, score * 1.0f / (totalNote * 100));
+		private float GetScorePercent() => (totalBarrage == 0) ? 0 : MathF.Min(1, score * 1.0f / (totalBarrage * 100));
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		private void GenerateMark()
@@ -236,22 +182,19 @@ internal partial class StateShower
 				>= 0.75f => SkillMark.Ordinary,
 				_ => SkillMark.Failed
 			};
-			plus = mark switch
-			{
-				SkillMark.Ordinary when scorePercent >= 0.85f => true,
-				SkillMark.Acceptable when scorePercent >= 0.93f => true,
-				SkillMark.Respectable when scorePercent >= 0.97f => true,
-				SkillMark.Excellent when (buffed && AC) || (scorePercent >= 0.99f && AC) => true,
-				SkillMark.Eminent when buffed && scorePercent >= 0.995f && AC && okayCount == 0 => true,
-				_ => false
-			};
+			plus =
+				(mark == SkillMark.Ordinary && scorePercent >= 0.85f) ||
+				(mark == SkillMark.Acceptable && scorePercent >= 0.93f) ||
+				(mark == SkillMark.Respectable && scorePercent >= 0.97f) ||
+				(mark == SkillMark.Excellent && AC && (buffed || scorePercent >= 0.99f)) ||
+				(mark == SkillMark.Eminent && buffed && scorePercent >= 0.995f && AC && okayCount == 0);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private void PushModifiers(string Name) => ModesUsed += ((ModesUsedAmt++ > 0) ? " + " : "") + Name;
+		private void PushModifiers(string Name) => ModesUsed += ((ModesUsedAmt++ > 0) ? ", " : "") + Name;
 
 		private readonly float oldRating, curRating;
 		private float alpha = 0;
-		private readonly int coinAdded = 0, totalNote;
+		private readonly int coinAdded = 0, totalBarrage;
 		private readonly IWaveSet gamePlayed;
 		private float appearTime = 0;
 		private readonly bool AC, AP;
@@ -260,9 +203,8 @@ internal partial class StateShower
 		private readonly JudgementState judgeState;
 
 		private readonly int missCount, okayCount, niceCount, perfectCount, perfectECount, perfectLCount, score, maxCombo;
-		private readonly float perfectPercent, hitPercent;
+		private readonly float perfectPercent;
 
-		private readonly string topText;
 		public string[] difficultyText = new string[3];
 		private readonly GameMode lastMode;
 		private readonly Color topColor;
@@ -270,195 +212,48 @@ internal partial class StateShower
 		private int ModesUsedAmt = 0;
 		private bool ModifiersUsed => ModesUsedAmt > 0;
 		public static bool record;
-		private Vector3 CurrentChartConstRating = Vector3.Zero;
 		#endregion
 		#region UI
-		private readonly JToken optionTexts = Localization.GetTranslationData().SelectToken("ResultScreen.Options");
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private void MarkDraw()
-		{
-			string text = $"SkillRating.{mark}";
-
-			_ = Localization.GetFont("NormalFont");
-			if (plus)
-				text += "+";
-			float height = 335;
-			switch (mark)
-			{
-				case SkillMark.Impeccable:
-					Localization.DrawLocalizedText(text, new Vector2(414, height + Fight.Functions.Sin(appearTime * 1.6f) * 18), color: Color.Lerp(Color.Transparent, Color.Goldenrod, alpha), scale: new Vector2(2), rotation: GetRadian(Fight.Functions.Sin(appearTime * 2.5f) * 7), depth: 0.9f, align: Localization.DrawAlign.Middle);
-					break;
-				case SkillMark.Eminent:
-					Localization.DrawLocalizedText(text, new Vector2(414, height + Fight.Functions.Sin(appearTime * 1.6f) * 18), color: Color.Lerp(Color.Transparent, Color.OrangeRed, alpha), scale: new Vector2(2), rotation: GetRadian(Fight.Functions.Sin(appearTime) * 4), depth: 0.9f, align: Localization.DrawAlign.Middle);
-					break;
-				case SkillMark.Excellent:
-					Localization.DrawLocalizedText(text, new Vector2(414, height + Fight.Functions.Sin(appearTime * 1.6f) * 9), color: Color.Lerp(Color.Transparent, Color.MediumPurple, alpha), scale: new Vector2(2), rotation: GetRadian(7), depth: 0.9f, align: Localization.DrawAlign.Middle);
-					break;
-				case SkillMark.Respectable:
-					Localization.DrawLocalizedText(text, new Vector2(414, height), color: Color.Lerp(Color.Transparent, Color.LightSkyBlue, alpha), scale: new Vector2(2), depth: 0.9f, align: Localization.DrawAlign.Middle);
-					break;
-				case SkillMark.Acceptable:
-					Localization.DrawLocalizedText(text, new Vector2(414, height), color: Color.Lerp(Color.Transparent, Color.SpringGreen, alpha), scale: new Vector2(2), depth: 0.9f, align: Localization.DrawAlign.Middle);
-					break;
-				case SkillMark.Ordinary:
-					Localization.DrawLocalizedText(text, new Vector2(414, height), color: Color.Lerp(Color.Transparent, Color.Green, alpha), scale: new Vector2(2), depth: 0.9f, align: Localization.DrawAlign.Middle);
-					break;
-				case SkillMark.Failed:
-					Localization.DrawLocalizedText(text, new Vector2(414, height), color: Color.Lerp(Color.Transparent, Color.DarkRed, alpha), scale: new Vector2(2.5f), depth: 0.9f, align: Localization.DrawAlign.Middle);
-					break;
-			}
-		}
-		private readonly float previousAccuracy = 0;
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private void SummaryDraw()
-		{
-			MarkDraw();
-			Color col = Color.Lerp(Color.Transparent, Color.White, alpha);
-			(GLFont NormalFont, float fontScale) = Localization.GetFontData("NormalFont");
-			Localization.DrawLocalizedText("ResultScreen.YourScore", new Vector2(214, 107), color: col, depth: 0.5f);
-			NormalFont.Draw((DisplayValues.Score = MathF.Ceiling(float.Lerp(DisplayValues.Score, score, 0.04f))).ToString(), new Vector2(392, 106), col, 1.2f * fontScale, 0.5f);
-			NormalFont.Draw($"({(DisplayValues.SAccuracy = float.Lerp(DisplayValues.SAccuracy, CurrentAccuracy, 0.04f)) * 100:F1}%)", new Vector2(516, 109), Color.Lerp(Color.Transparent, Color.Silver, alpha), 0.93f * fontScale, 0.5f);
-			if (CurrentUser is not null)
-			{
-				if (CurrentAccuracy > previousAccuracy)
-				{
-					Localization.DrawLocalizedText("ResultScreen.NewRecord", new Vector2(392, 87), color: Color.Lerp(Color.Transparent, Color.Gold, alpha) * (0.6f + Fight.Functions.Sin(appearTime * 4) / 2f), scale: new(fontScale / 2), depth: 0.5f);
-					NormalFont.Draw($"+{Score - SongData.SongState.scoreData.PrevScore}", new Vector2(392, 127), Color.Lerp(Color.Transparent, Color.Gold, alpha) * (0.8f + Fight.Functions.Sin(appearTime * 4) * 0.2f), fontScale / 2, 0.5f);
-					NormalFont.Draw($"(+{FloatToString((CurrentAccuracy - SongData.SongState.scoreData.PrevAcc) * 100, 1)}%)", new Vector2(516, 127), Color.Lerp(Color.Transparent, Color.Gold, alpha) * (0.8f + Fight.Functions.Sin(appearTime * 4) * 0.2f), fontScale / 2, 0.5f);
-				}
-				else
-				{
-					Localization.DrawLocalizedText("ResultScreen.BestScore", new Vector2(295, 130), [SongData.SongState.scoreData.PrevScore], color: Color.Lerp(Color.Transparent, Color.Gray, alpha), scale: new(fontScale / 2), depth: 0.5f);
-					NormalFont.Draw($"({FloatToString(SongData.SongState.scoreData.PrevAcc * 100, 1)}%)", new Vector2(516, 130), Color.Lerp(Color.Transparent, Color.Gray, alpha), fontScale / 2, 0.5f);
-				}
-			}
-			DrawingLab.DrawLine(new Vector2(212, 145), new Vector2(616, 145), 2, Color.Lerp(Color.Transparent, Color.Silver, alpha), 0.5f);
-
-			if (CurrentAccuracy > 0)
-			{
-				string Judge = Localization.GetText($"JudgementState.{judgeState}Short");
-				Color JudgeCol = judgeState switch
-				{
-					JudgementState.Strict => Color.Red,
-					JudgementState.Balanced => Color.Yellow,
-					_ => Color.Lime
-				};
-				NormalFont.Draw(Judge, new(560, 213), Color.Lerp(Color.Transparent, JudgeCol, alpha), fontScale, 0.5f);
-			}
-
-			if (AP)
-			{
-				float tmpDepth = Depth;
-				Depth = 0.3f;
-				FormalDraw(FightResources.Sprites.allPerfectText, new(300, 170), Color.Lerp(Color.Transparent, Color.White, alpha), 0, Vector2.Zero);
-				Depth = tmpDepth;
-			}
-			else
-			{
-				if (CurrentAccuracy > 0)
-				{
-					if (AC)
-						NormalFont.Draw(Localization.GetText("ResultScreen.NoHit"), new Vector2(214, 170), Color.Lerp(Color.Transparent, Color.Orange, alpha), 1, 0.3f);
-					else
-					{
-						NormalFont.Draw(Localization.GetText("ChartJudgement.Miss"), new Vector2(214, 170), Color.Lerp(Color.Transparent, Color.Red, alpha), 1, 0.3f);
-						NormalFont.Draw((DisplayValues.Miss = MathF.Ceiling(float.Lerp(DisplayValues.Miss, missCount, 0.04f))).ToString(), new Vector2(214 + 79, 170), Color.Lerp(Color.Transparent, Color.LightGray, alpha), 1, 0.3f);
-					}
-
-					NormalFont.Draw(Localization.GetText("ChartJudgement.Okay"), new Vector2(346, 170), Color.Lerp(Color.Transparent, Color.Green, alpha), 1, 0.3f);
-					NormalFont.Draw((DisplayValues.Okay = MathF.Ceiling(float.Lerp(DisplayValues.Okay, okayCount, 0.04f))).ToString(), new Vector2(346 + 79, 170), Color.Lerp(Color.Transparent, Color.LightGray, alpha), 1, 0.3f);
-					NormalFont.Draw(Localization.GetText("ChartJudgement.Nice"), new Vector2(478, 170), Color.Lerp(Color.Transparent, Color.LightBlue, alpha), 1, 0.3f);
-					NormalFont.Draw((DisplayValues.Nice = MathF.Ceiling(float.Lerp(DisplayValues.Nice, niceCount, 0.04f))).ToString(), new Vector2(478 + 79, 170), Color.Lerp(Color.Transparent, Color.LightGray, alpha), 1, 0.3f);
-				}
-				else
-					NormalFont.CentreDraw(Localization.GetText("ResultScreen.NoBarrage"), new Vector2(400, 220), Color.Lerp(Color.Black, Color.Red, alpha), 1, 0.3f);
-			}
-			if (CurrentAccuracy <= 0)
-				return;
-			NormalFont.Draw(Localization.GetText("ChartJudgement.Perfect"), new Vector2(214, 212), Color.Lerp(Color.Transparent, Color.Yellow, alpha), 1, 0.3f);
-			NormalFont.Draw($"{DisplayValues.Perfect = MathF.Ceiling(float.Lerp(DisplayValues.Perfect, perfectCount, 0.04f))} = {(DisplayValues.PAccuracy = float.Lerp(DisplayValues.PAccuracy, perfectPercent, 0.04f)) * 100:F2}%", new Vector2(214 + 125, 212), Color.Lerp(Color.Transparent, Color.LightGray, alpha), 1, 0.3f);
-			NormalFont.Draw(Localization.GetText("ResultScreen.EarlyLate", DisplayValues.PerfectE = MathF.Ceiling(float.Lerp(DisplayValues.PerfectE, perfectECount, 0.04f)), DisplayValues.PerfectL = MathF.Ceiling(float.Lerp(DisplayValues.PerfectL, perfectLCount, 0.04f))), new(214, 235), Color.Lerp(Color.Transparent, Color.Orange, alpha), 0.7f, 0.3f);
-			NormalFont.Draw(Localization.GetText("ResultScreen.MaxCombo", DisplayValues.Combo = MathF.Ceiling(float.Lerp(DisplayValues.Combo, maxCombo, 0.04f))), new Vector2(214, 255), Color.Lerp(Color.Transparent, Color.Silver, alpha), 1, 0.3f);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		private void RatingDraw()
+		private static int NetResultMaxPage => OverallNetManager.ConnectedUserCount / 10;
+		private int NetResultPage = 0;
+		private void NetSummaryDraw()
 		{
 			GLFont NormalFont = Localization.GetFont("NormalFont");
-			//Difficulty unrated
-			if (string.IsNullOrEmpty(difficultyText[0]))
+			//Index
+			//Name | Time | Score | MONELP
+			//-----|------|-------|-------
+			NormalFont.Draw("Name", new Vector2(210, 97), Color.White * alpha, 0.75f, 0.3f);
+			DrawingLab.DrawLine(new Vector2(267, 78), new Vector2(267, 373), 2, Color.White * alpha, 0.3f);
+			NormalFont.Draw("Time", new Vector2(274, 97), Color.White * alpha, 0.75f, 0.3f);
+			DrawingLab.DrawLine(new Vector2(328, 78), new Vector2(328, 373), 2, Color.White * alpha, 0.3f);
+			NormalFont.Draw("Score(Acc.)", new Vector2(334, 97), Color.White * alpha, 0.75f, 0.3f);
+			DrawingLab.DrawLine(new Vector2(465, 78), new Vector2(465, 373), 2, Color.White * alpha, 0.3f);
+			NormalFont.Draw("M/O/N/E/L/P", new Vector2(470, 97), Color.White * alpha, 0.75f, 0.3f);
+			DrawingLab.DrawLine(new Vector2(200, 118), new Vector2(628, 118), 3, Color.White * alpha, 0.3f);
+			List<OverallNetManager.ConnectedUserData> UserList = [.. OverallNetManager.ConnectedUsers.Where(user => user.ChartEnded)];
+			//Sort by descending order
+			UserList.Sort((accA, accB) => accB.CurrentAccuracy.CompareTo(accA.CurrentAccuracy));
+			for (int i = 0; i < 10; i++)
 			{
-				Color col = Color.Lerp(Color.Transparent, Color.Gray, alpha);
-				NormalFont.Draw(Localization.GetText("ResultScreen.RatingGained"), new Vector2(211, 92), col, 0.95f, 0.3f);
-				NormalFont.Draw("->", new Vector2(211, 160), col, 0.9f, 0.3f);
-				NormalFont.Draw("*", new Vector2(330, 160), col, 0.9f, 0.3f);
-				NormalFont.Draw(Localization.GetText("ResultScreen.Complete[0]"), new Vector2(211, 130), col, 0.95f, 0.3f);
-				NormalFont.Draw(Localization.GetText("ResultScreen.Complete[1]"), new Vector2(211, 193), col, 1, 0.3f);
-				DrawingLab.DrawLine(new Vector2(210, 237.5f), new Vector2(618, 241.5f), 2, col, 0.3f);
-				NormalFont.Draw(Localization.GetText("ResultScreen.Complex[0]"), new Vector2(211, 260), col, 0.95f, 0.3f);
-				NormalFont.Draw(Localization.GetText("ResultScreen.Complex[1]"), new Vector2(211, 323), col, 1, 0.3f);
-				if (AC)
-					NormalFont.Draw(Localization.GetText("ResultScreen.NextPage"), new Vector2(525, 360), col, 0.5f, 0.3f);
-
-				DrawingLab.DrawLine(new Vector2(202, 80), new Vector2(627, 373), 5, Color.Lerp(Color.Transparent, Color.Red, alpha), 0.4f);
-				DrawingLab.DrawLine(new Vector2(627, 80), new Vector2(202, 373), 5, Color.Lerp(Color.Transparent, Color.Red, alpha), 0.4f);
-				for (int i = 0; i < 8; i++)
-					NormalFont.CentreDraw(Localization.GetText("ResultScreen.Unrated"), new Vector2(410, 235) + GetVector2(3, i * 45), Color.Lerp(Color.Transparent, Color.Lerp(Color.Green, Color.Transparent, 0.3f), alpha), 1.5f, 0.48f);
-				NormalFont.CentreDraw(Localization.GetText("ResultScreen.Unrated"), new Vector2(410, 235), Color.Lerp(Color.Transparent, Color.Lime, alpha), 1.5f, 0.5f);
-				return;
-			}
-			NormalFont.Draw(Localization.GetText("ResultScreen.RatingGained"), new Vector2(211, 96), Color.Lerp(Color.Transparent, Color.White, alpha), 0.95f, 0.4f);
-			if (curRating > oldRating + 0.001f)
-				NormalFont.Draw("+" + FloatToString(curRating - oldRating, 3), new Vector2(431, 96), Color.Lerp(Color.Transparent, Color.Lime, alpha), 1, 0.3f);
-			else
-				NormalFont.Draw(Localization.GetText("ResultScreen.NoProgress"), new Vector2(431, 96), Color.Lerp(Color.Transparent, Color.Silver, alpha), 1, 0.3f);
-			DrawingLab.DrawLine(new Vector2(210, 237.5f), new Vector2(618, 237.5f), 2, Color.Lerp(Color.Transparent, Color.White, alpha), 0.4f);
-			NormalFont.Draw("->", new Vector2(211, 164), Color.Lerp(Color.Transparent, Color.Silver, alpha), 0.9f, 0.4f);
-			NormalFont.Draw("*", new Vector2(330, 164), Color.Lerp(Color.Transparent, Color.White, alpha), 0.9f, 0.4f);
-			NormalFont.Draw($"{FloatToString(rerate * 100, 1)}% ({FloatToString(CurrentAccuracy * 100, 1)}%)", new Vector2(354, 164), Color.Lerp(Color.Transparent, Color.White, alpha), 0.9f, 0.4f);
-			if (AC)
-				NormalFont.Draw(Localization.GetText(RatingSelection == 0 ? "ResultScreen.NextPage" : "ResultScreen.PrevPage"), new Vector2(RatingSelection == 0 ? 525 : 205, 360), Color.Lerp(Color.Transparent, Color.Gray, alpha), 0.5f, 0.4f);
-			if ((RatingSelection == 0 && !AP) || AP)
-			{
-				NormalFont.Draw("->", new Vector2(211, 294), Color.Lerp(Color.Transparent, Color.Silver, alpha), 0.9f, 0.4f);
-				NormalFont.Draw("*", new Vector2(330, 294), Color.Lerp(Color.Transparent, Color.White, alpha), 0.9f, 0.4f);
-				NormalFont.Draw($"{FloatToString(rerate * 100, 1)}% ({FloatToString(CurrentAccuracy * 100, 1)}%)", new Vector2(354, 294), Color.Lerp(Color.Transparent, Color.White, alpha), 0.9f, 0.4f);
-			}
-			if (RatingSelection == 0)
-			{
-				NormalFont.Draw(Localization.GetText("ResultScreen.Complete[0]"), new Vector2(211, 134), Color.Lerp(Color.Transparent, new Color(0, 255, 0), alpha), 0.95f, 0.4f);
-				NormalFont.Draw(difficultyText[0], new Vector2(261, 164), Color.Lerp(Color.Transparent, topColor, alpha), 0.9f, 0.4f);
-				NormalFont.Draw(Localization.GetText("ResultScreen.Complete[1]"), new Vector2(211, 197), Color.Lerp(Color.Transparent, Color.White, alpha), 1, 0.3f);
-				NormalFont.Draw($"{FloatToString(CurrentChartConstRating.Z, 2)}", new Vector2(520, 197), Color.Lerp(Color.Transparent, Color.PowderBlue, alpha), 1.2f, 0.4f);
-				NormalFont.Draw(Localization.GetText("ResultScreen.Complex[0]"), new Vector2(211, 264), Color.Lerp(Color.Transparent, Color.White, alpha), 0.95f, 0.4f);
-				NormalFont.Draw(difficultyText[1], new Vector2(261, 295), Color.Lerp(Color.Transparent, topColor, alpha), 0.9f, 0.4f);
-				NormalFont.Draw(Localization.GetText("ResultScreen.Complex[1]"), new Vector2(211, 328), Color.Lerp(Color.Transparent, Color.White, alpha), 1, 0.3f);
-				NormalFont.Draw($"{FloatToString(CurrentChartConstRating.X, 2)}", new Vector2(520, 326), Color.Lerp(Color.Transparent, Color.PowderBlue, alpha), 1.2f, 0.4f);
-			}
-			else
-			{
-				if (AC)
+				int getIndex = i + NetResultPage * 10;
+				if (getIndex >= OverallNetManager.ConnectedUserCount || getIndex >= UserList.Count)
+					break;
+				OverallNetManager.ConnectedUserData curUser = UserList[getIndex];
+				Color drawCol = i switch
 				{
-					NormalFont.Draw(Localization.GetText("ResultScreen.FullCombo[0]"), new Vector2(211, 134), Color.Lerp(Color.Transparent, Color.MediumPurple, alpha), 0.95f, 0.4f);
-					NormalFont.Draw(difficultyText[2], new Vector2(261, 164), Color.Lerp(Color.Transparent, topColor, alpha), 0.9f, 0.4f);
-					NormalFont.Draw(Localization.GetText("ResultScreen.FullCombo[1]"), new Vector2(211, 197), Color.Lerp(Color.Transparent, Color.White, alpha), 1, 0.3f);
-					NormalFont.Draw($"{FloatToString(CurrentChartConstRating.Y, 2)}", new Vector2(520, 197), Color.Lerp(Color.Transparent, Color.MediumPurple, alpha), 1.2f, 0.4f);
-				}
-				if (AP)
-				{
-					NormalFont.Draw(Localization.GetText("ResultScreen.AllPerfect[0]"), new Vector2(211, 264), Color.Lerp(Color.Transparent, Color.Gold, alpha), 0.95f, 0.4f);
-					NormalFont.Draw(difficultyText[2], new Vector2(261, 294), Color.Lerp(Color.Transparent, topColor, alpha), 0.9f, 0.4f);
-					NormalFont.Draw(Localization.GetText("ResultScreen.AllPerfect[1]"), new Vector2(211, 327), Color.Lerp(Color.Transparent, Color.White, alpha), 1, 0.3f);
-					NormalFont.Draw($"{FloatToString(CurrentChartConstRating.Y, 2)}", new Vector2(520, 326), Color.Lerp(Color.Transparent, Color.Gold, alpha), 1.2f, 0.4f);
-				}
+					0 when NetResultPage == 0 => Color.Gold,
+					1 when NetResultPage == 0 => Color.Silver,
+					2 when NetResultPage == 0 => new Color(205, 127, 50),
+					_ => Color.White
+				};
+				int curY = 127 + (int)(i * 25.4f);
+				NormalFont.DrawContainedText(curUser.PlayerName, new Rectangle(210, curY, 60, 20), drawCol * alpha, 0.7f, 0.3f);
+				NormalFont.DrawContainedText($"{curUser.SurviveTime / 60:F2}", new Rectangle(274, curY, 50, 20), drawCol * alpha, 0.7f, 0.3f);
+				NormalFont.DrawContainedText($"{curUser.CurrentScore}({curUser.CurrentAccuracy * 100:F2}%)", new Rectangle(334, curY, 130, 20), drawCol * alpha, 0.7f, 0.3f);
+				NormalFont.DrawContainedText($"{curUser.MissCount}/{curUser.OkayCount}/{curUser.NiceCount}/{curUser.PerfectECount}/{curUser.PerfectLCount}/{curUser.PerfectCount}", new Rectangle(470, curY, 140, 20), drawCol * alpha, 0.7f, 0.3f);
+				if (i < 9)
+					DrawingLab.DrawLine(new Vector2(200, curY + 18), new Vector2(628, curY + 18), 3, Color.White * alpha, 0.3f);
 			}
-			//Modifier unrated
-			if (!ModifiersUsed)
-				return;
-			DrawingLab.DrawLine(new Vector2(202, 80), new Vector2(627, 372), 5, Color.Lerp(Color.Transparent, Color.Red, alpha), 0.45f);
-			DrawingLab.DrawLine(new Vector2(627, 80), new Vector2(202, 372), 5, Color.Lerp(Color.Transparent, Color.Red, alpha), 0.45f);
-			for (int i = 0; i < 8; i++)
-				NormalFont.CentreDraw(Localization.GetText("ResultScreen.Unrated"), new Vector2(410, 235) + GetVector2(3, i * 45), Color.Lerp(Color.Transparent, Color.Lerp(Color.Green, Color.Transparent, 0.3f), alpha), 1.5f, 0.6f);
-			NormalFont.CentreDraw(Localization.GetText("ResultScreen.Unrated"), new Vector2(410, 235), Color.Lerp(Color.Transparent, Color.Lime, alpha), 1.5f, 0.7f);
 		}
 		#endregion
 		#region Extra
@@ -515,81 +310,226 @@ internal partial class StateShower
 		#endregion
 		public override void Draw()
 		{
-			GLFont NormalFont = Localization.GetFont("NormalFont");
 			#region Chart illustration
 			Texture2D chartPaint = chartIllustration;
 			if (chartPaint != null)
 			{
 				float xscale = 640f / chartPaint.Width, yscale = 480f / chartPaint.Height;
 				for (int i = 0; i < 8; i++)
-					FormalDraw(chartPaint, new Vector2(320 * xscale, 240 * yscale) + GetVector2(5, i * 45), Color.Lerp(Color.Transparent, Color.White, 0.05f), new Vector2(xscale, yscale), 0, new(320, 240));
-				FormalDraw(chartPaint, new(320 * xscale, 240 * yscale), Color.Lerp(Color.Transparent, Color.White, 0.05f), new Vector2(xscale, yscale), 0, new(320, 240));
+					GeneralDraw(chartPaint, new Vector2(320 * xscale, 240 * yscale) + GetVector2(5, i * 45), Color.Lerp(Color.Transparent, Color.White, 0.05f), new Vector2(xscale, yscale), 0, new Vector2(320, 240));
+				GeneralDraw(chartPaint, new(320 * xscale, 240 * yscale), Color.Lerp(Color.Transparent, Color.White, 0.05f), new Vector2(xscale, yscale), 0, new(320, 240));
 			}
 			#endregion
+			(GLFont NormalFont, float fontScale) = Localization.GetFontData("NormalFont");
 			Color col = Color.Lerp(Color.Black, Color.White, alpha);
-			#region Main Box
-			collidingBox = new CollideRect(200, 78, 428, 295);
-			DrawingLab.DrawRectangle(CollidingBox, col, 3f, 0.5f);
-			DrawingLab.DrawLine(new Vector2(CollidingBox.Left, CollidingBox.GetCentre().Y), new Vector2(CollidingBox.Right, CollidingBox.GetCentre().Y), 295, Color.Black * 0.5f * alpha, 0.2f);
-
-			if (curSelection == 0)
-				SummaryDraw();
-			else if (curSelection == 2)
-				RatingDraw();
-			#endregion
-			#region Texts
 			//Song name
-			NormalFont.CentreDraw(Localization.GetText("ResultScreen.Result", GlobalData.GetWavesetDisplayName(gamePlayed)), new Vector2(320, 40), col, 1.1f, 0.5f);
-
-			//Modifiers used:
-			float centre = ratingResult == null ? 320 : 400;
-			NormalFont.CentreDraw(Localization.GetText("ResultScreen.Modifiers", ModesUsed), new Vector2(centre, 395), col, 0.8f, 0.5f);
-
-			//Arrow speed
-			NormalFont.CentreDraw(Localization.GetText("ResultScreen.ArrowSpeed", FloatToString(Settings.SettingsManager.DataLibrary.ArrowSpeed, 2)), new Vector2(centre, 420), col, 0.8f, 0.5f);
-
-			//Player selection
-			NormalFont.CentreDraw(Localization.GetText("ResultScreen.LeaveRestart", MiscUtil.GetInputKeys(InputIdentity.Confirm)[0], MiscUtil.GetInputKeys(InputIdentity.Reset)[0]), new Vector2(centre, 455), col, 0.8f, 0.5f);
-
-			//Difficulty box
-			DrawingLab.DrawRectangle(new CollideRect(new Vector2(12, 78), new Vector2(177, 70)), col, 3f, 0.5f);
-			DrawingLab.DrawLine(new Vector2(12, 113), new Vector2(189, 113), 70, Color.Black * 0.5f * alpha, 0.2f);
-			NormalFont.Draw(Localization.GetText("ResultScreen.Diff"), new Vector2(22, 95), col, 0.8f, 0.3f);
-			NormalFont.Draw(topText, new Vector2(20, 120), Color.Lerp(Color.Transparent, topColor, alpha), 0.8f, 0.5f);
-
-			//Side text drawing
-			for (int i = 0; i < 3; i++)
+			DrawingLab.DrawRoundedRectangle(new Vector2(320, 60), new Vector2(480, 30), 10, topColor * alpha, 0.1f);
+			NormalFont.DrawContainedTextCentered(GlobalData.GetWavesetDisplayName(gamePlayed), new Rectangle(220, 55, 200, 30), Color.Black * alpha, 0.9f, 0.11f);
+			//Icon
+			if (chartPaint != null)
+				GeneralDraw(chartPaint, new Vector2(160, 60), scale: new Vector2(40f / chartPaint.Width, 30f / chartPaint.Height), depth: 0.11f);
+			//Difficulty
+			string diffText = gamePlayed.Attributes.ComplexDifficulty.TryGetValue((Difficulty)difficulty, out float diff) ? FloatToString(diff, 1) : "?";
+			NormalFont.DrawContainedTextCentered($"{MiscUtil.GetShorthandName((Difficulty)difficulty)} {diffText}", new Rectangle(440, 55, 100, 30), Color.Black * alpha, 0.9f, 0.11f);
+			#region Left Side
+			//Left side
+			SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.1f, [
+				new VertexPositionColor(new Vector3(0, 130, 0.1f), Color.Transparent),
+				new VertexPositionColor(new Vector3(290, 130, 0.1f), Color.Black * alpha),
+				new VertexPositionColor(new Vector3(200, 380, 0.1f), Color.Black * alpha),
+				new VertexPositionColor(new Vector3(0, 380, 0.1f), Color.Transparent),
+			]);
+			//Upper outline
+			SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.1f, [
+				new VertexPositionColor(new Vector3(0, 127, 0.1f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(290, 127, 0.1f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(290 + 3 * 9 / 25f, 130, 0.1f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(0, 130, 0.1f), Color.White * alpha),
+			]);
+			//Lower outline
+			SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.1f, [
+				new VertexPositionColor(new Vector3(0, 380, 0.1f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(200 + 3 * 9 / 25f, 380, 0.1f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(200, 383, 0.1f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(0, 383, 0.1f), Color.White * alpha),
+			]);
+			//Right outline
+			SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.1f, [
+				new VertexPositionColor(new Vector3(200, 383, 0.1f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(290, 127, 0.1f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(293, 127, 0.1f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(203, 383, 0.1f), Color.White * alpha),
+			]);
+			//Draw skill rating
+			string skillMark = $"SkillRating.{mark}";
+			if (plus)
+				skillMark += "+";
+			float height = 107;
+			float skillX = 320;
+			Color markCol = Color.Black;
+			switch (mark)
 			{
-				Color color = Color.White;
-				float displace = 0;
-				if (i == curSelection)
-				{
-					color = Color.Gold;
-					displace = appearTime % 62.5f < 31.25f ? 2 : 0;
-				}
-				NormalFont.Draw(optionTexts[i].ToString(), new Vector2(25, 177 + 69 * i), Color.Lerp(Color.Transparent, color, alpha), 0.8f, 0.3f);
-				DrawingLab.DrawLine(new Vector2(19 + displace, 225 + 69 * i), new(177 - displace, 225 + 69 * i), 2f, Color.Lerp(Color.Transparent, color, alpha), 0.3f);
+				case SkillMark.Impeccable:
+					Localization.DrawLocalizedText(skillMark, new Vector2(skillX, height + Fight.Functions.Sin(appearTime * 1.6f) * 12), color: markCol = Color.Lerp(Color.Transparent, Color.Goldenrod, alpha), scale: new Vector2(1.5f), rotation: GetRadian(Fight.Functions.Sin(appearTime * 2.5f) * 3), depth: 0.9f, align: Localization.DrawAlign.Middle);
+					break;
+				case SkillMark.Eminent:
+					Localization.DrawLocalizedText(skillMark, new Vector2(skillX, height + Fight.Functions.Sin(appearTime * 1.6f) * 12), color: markCol = Color.Lerp(Color.Transparent, Color.OrangeRed, alpha), scale: new Vector2(1.5f), rotation: GetRadian(Fight.Functions.Sin(appearTime) * 1.5f), depth: 0.9f, align: Localization.DrawAlign.Middle);
+					break;
+				case SkillMark.Excellent:
+					Localization.DrawLocalizedText(skillMark, new Vector2(skillX, height + Fight.Functions.Sin(appearTime * 1.6f) * 6), color: markCol = Color.Lerp(Color.Transparent, Color.MediumPurple, alpha), scale: new Vector2(1.5f), rotation: GetRadian(7), depth: 0.9f, align: Localization.DrawAlign.Middle);
+					break;
+				case SkillMark.Respectable:
+					Localization.DrawLocalizedText(skillMark, new Vector2(skillX, height), color: markCol = Color.Lerp(Color.Transparent, Color.LightSkyBlue, alpha), scale: new Vector2(1.5f), depth: 0.9f, align: Localization.DrawAlign.Middle);
+					break;
+				case SkillMark.Acceptable:
+					Localization.DrawLocalizedText(skillMark, new Vector2(skillX, height), color: markCol = Color.Lerp(Color.Transparent, Color.SpringGreen, alpha), scale: new Vector2(1.5f), depth: 0.9f, align: Localization.DrawAlign.Middle);
+					break;
+				case SkillMark.Ordinary:
+					Localization.DrawLocalizedText(skillMark, new Vector2(skillX, height), color: markCol = Color.Lerp(Color.Transparent, Color.Green, alpha), scale: new Vector2(1.5f), depth: 0.9f, align: Localization.DrawAlign.Middle);
+					break;
+				case SkillMark.Failed:
+					Localization.DrawLocalizedText(skillMark, new Vector2(skillX, height), color: markCol = Color.Lerp(Color.Transparent, Color.DarkRed, alpha), scale: new Vector2(2.5f * 0.75f), depth: 0.9f, align: Localization.DrawAlign.Middle);
+					break;
 			}
+			markCol *= 0.5f;
+			DrawingLab.DrawLineColors(new Vector2(40, height), new Vector2(320, height), 40, [markCol, Color.Transparent, Color.Transparent, markCol], 0.89f);
+			DrawingLab.DrawLineColors(new Vector2(600, height), new Vector2(320, height), 40, [markCol, Color.Transparent, Color.Transparent, markCol], 0.89f);
+			//Score
+			Localization.DrawLocalizedText("ResultScreen.YourScore", new Vector2(10, 140), scale: new Vector2(0.4f), color: col, depth: 0.11f);
+			string Judge = Localization.GetText($"JudgementState.{judgeState}Short");
+			Color JudgeCol = judgeState switch
+			{
+				JudgementState.Strict => Color.Red,
+				JudgementState.Balanced => Color.Yellow,
+				_ => Color.Lime
+			};
+			NormalFont.Draw(Judge, new(10 + NormalFont.SFX.MeasureString(Localization.GetText("ResultScreen.YourScore")).X * 0.4f, 140), Color.Lerp(Color.Transparent, JudgeCol, alpha), fontScale * 0.4f, 0.5f);
+			NormalFont.DrawContainedText(DisplayValues.Score.ToString(), new Rectangle(10, 154, 190, 50), col, 1.2f * fontScale, 0.11f);
+			NormalFont.Draw($"({DisplayValues.SAccuracy * 100:F1}%)", new Vector2(205, 152), Color.Lerp(Color.Transparent, CurrentAccuracy >= 1 ? Color.Gold : Color.Silver, alpha), 0.6f * fontScale, 0.11f);
+			if (CurrentUser != null)
+			{
+				if (!ModifiersUsed)
+				{
+					NormalFont.DrawContainedText(SongData.SongState.scoreData.PrevScore.ToString(), new Rectangle(10, 174, 90, 50), Color.Gray * alpha, 0.4f * fontScale, 0.11f);
+					int scoreDiff = Score - SongData.SongState.scoreData.PrevScore;
+					NormalFont.DrawContainedText(scoreDiff < 0 ? $"{scoreDiff}" : $"+{scoreDiff}", new Rectangle(100, 174, 190, 50), (scoreDiff < 0 ? Color.Red : Color.Yellow) * alpha, 0.4f * fontScale, 0.11f);
+					NormalFont.Draw($"({SongData.SongState.scoreData.PrevAcc * 100:F1}%)", new Vector2(205, 165), Color.Lerp(Color.Transparent, Color.Gray, alpha), 0.4f * fontScale, 0.11f);
+					float accDiff = CurrentAccuracy - SongData.SongState.scoreData.PrevAcc;
+					NormalFont.Draw($"{(accDiff > 0 ? "+" : "")}{accDiff * 100:F1}%", new Vector2(205, 174), Color.Lerp(Color.Transparent, accDiff < 0 ? Color.Red : Color.Yellow, alpha), 0.4f * fontScale, 0.11f);
+				}
+				else
+					Localization.DrawLocalizedText("ResultScreen.ModifiersUsed", new Vector2(10, 174), scale: new Vector2(0.4f), color: Color.Gray * alpha, depth: 0.11f);
+			}
+			if (ModifiersUsed && (playData.GameMode & GameMode.Autoplay) != 0)
+				NormalFont.Draw("Autoplay", new Vector2(205, 165), Color.Lime * alpha, 0.4f * fontScale, 0.11f);
+			//Data
+			Color[] colors = [Color.Red, Color.Green, Color.LightBlue, Color.Yellow];
+			float[] counts = [DisplayValues.Miss, DisplayValues.Okay, DisplayValues.Nice, DisplayValues.Perfect];
+			for (int i = 0; i < 5; i++)
+			{
+				//Line
+				int upperY = 190 + i * 37;
+				SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.11f, [
+					new VertexPositionColor(new Vector3(0, upperY - 5, 0.11f), col),
+					new VertexPositionColor(new Vector3(290 - (upperY - 5 - 130) * 9 / 25f, upperY - 5, 0.11f), col),
+					new VertexPositionColor(new Vector3(290 - (upperY - 130) * 9 / 25f, upperY, 0.11f), col),
+					new VertexPositionColor(new Vector3(0, upperY, 0.11f), col),
+				]);
+				if (i == 4)
+					continue;
+				//Color background
+				SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.11f, [
+					new VertexPositionColor(new Vector3(0, upperY, 0.11f), Color.Transparent),
+					new VertexPositionColor(new Vector3(290 - (upperY - 130) * 9 / 25f, upperY, 0.11f), colors[i] * alpha),
+					new VertexPositionColor(new Vector3(290 - (upperY - 98) * 9 / 25f, upperY + 32, 0.11f), colors[i] * alpha),
+					new VertexPositionColor(new Vector3(0, upperY + 32, 0.11f), Color.Transparent),
+				]);
+				//Count and shadow
+				string countText = float.Round(counts[i]).ToString();
+				string dataKey = DefaultValues.ScoreTypes[i].Name;
+				NormalFont.DrawContainedText(countText, new Rectangle(122, upperY + 12, 80, 30), Color.Black * alpha, 1, 0.119f);
+				NormalFont.DrawContainedText(countText, new Rectangle(120, upperY + 10, 80, 30), col * alpha, 1, 0.12f);
+				NormalFont.DrawContainedText(dataKey, new Rectangle(12, upperY + 12, 120, 30), Color.Black * alpha, 1, 0.119f);
+				NormalFont.DrawContainedText(dataKey, new Rectangle(10, upperY + 10, 120, 30), colors[i] * alpha, 1, 0.12f);
+				//No hit
+				if (AC && i == 0)
+				{
+					string noHitText = Localization.GetText("ResultScreen.NoHit");
+					NormalFont.DrawContainedText(noHitText, new Rectangle(147, upperY + 12, 120, 30), Color.Black, 1, 0.119f);
+					NormalFont.DrawContainedText(noHitText, new Rectangle(145, upperY + 10, 120, 30), Color.Orange, 1, 0.12f);
+				}
+			}
+			//PAccuracy
+			if (AP)
+				GeneralDraw(FightResources.Sprites.allPerfectText, new(100, 360), Color.Lerp(Color.Transparent, Color.White, alpha), new Vector2(0.8f), depth: 0.12f);
+			else
+				NormalFont.DrawContainedTextCentered($"{DisplayValues.PAccuracy * 100:F2}% ({DisplayValues.Perfect}/{DisplayValues.Miss + DisplayValues.Okay + DisplayValues.Nice + DisplayValues.Perfect})", new Rectangle(10, 350, 190, 30), col, 1, 0.12f);
 			#endregion
-			DrawingLab.DrawRectangle(new CollideRect(new Vector2(12, 158), new Vector2(177, 215)), col, 3, 0.5f);
-			DrawingLab.DrawLine(new Vector2(12, 158 + 215 / 2f), new Vector2(189, 158 + 215 / 2f), 215, Color.Black * 0.5f * alpha, 0.2f);
+			#region Right Side
+			//Right side
+			SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.1f, [
+				new VertexPositionColor(new Vector3(330, 130, 0.1f), Color.Black * alpha),
+				new VertexPositionColor(new Vector3(640, 130, 0.1f), Color.Transparent),
+				new VertexPositionColor(new Vector3(550, 380, 0.1f), Color.Transparent),
+				new VertexPositionColor(new Vector3(240, 380, 0.1f), Color.Black * alpha),
+			]);
+			//Upper outline
+			SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.11f, [
+				new VertexPositionColor(new Vector3(640, 127, 0.11f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(330, 127, 0.11f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(330 - 3 * 9 / 25f, 130, 0.11f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(640, 130, 0.11f), Color.White * alpha),
+			]);
+			//Lower outline
+			SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.11f, [
+				new VertexPositionColor(new Vector3(640, 380, 0.11f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(240 + 3 * 9 / 25f, 380, 0.11f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(240, 383, 0.11f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(640, 383, 0.11f), Color.White * alpha),
+			]);
+			//Right outline
+			SpriteBatch.DrawVertex(FightResources.Sprites.pixUnit, 0.11f, [
+				new VertexPositionColor(new Vector3(240, 383, 0.11f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(330, 127, 0.11f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(333, 127, 0.11f), Color.White * alpha),
+				new VertexPositionColor(new Vector3(243, 383, 0.11f), Color.White * alpha),
+			]);
+			//Modifiers
+			NormalFont.Draw(Localization.GetText("ResultScreen.ArrowSpeed", FloatToString(Settings.SettingsManager.DataLibrary.ArrowSpeed, 2)), new Vector2(340, 150), col, 0.8f, 0.12f);
+			NormalFont.Draw($"Death Count: {DeathCount}", new Vector2(340 - 33 * 9 / 25f, 183), DeathCount > 0 ? Color.Red * alpha : col, 0.8f, 0.12f);
+			NormalFont.Draw($"Damage Taken: {DamageTaken}", new Vector2(340 - 66 * 9 / 25f, 216), DamageTaken == 0 ? Color.Gold * alpha : col, 0.8f, 0.12f);
+			NormalFont.Draw($"{Localization.GetText("ResultScreen.Early")}: {DisplayValues.PerfectE}", new Vector2(340 - 99 * 9 / 25f, 246), Color.Lerp(Color.Transparent, Color.Orange, alpha), 0.8f, 0.12f);
+			NormalFont.Draw($"{Localization.GetText("ResultScreen.Late")}: {DisplayValues.PerfectL}", new Vector2(340 - 132 * 9 / 25f, 279), Color.Lerp(Color.Transparent, Color.Orange, alpha), 0.8f, 0.12f);
+			NormalFont.Draw(Localization.GetText("ResultScreen.MaxCombo", DisplayValues.Combo), new Vector2(340 - 165 * 9 / 25f, 312), Color.Lerp(Color.Transparent, Color.Silver, alpha), 0.8f, 0.12f);
+			NormalFont.DrawContainedText(Localization.GetText("ResultScreen.Modifiers", ModesUsed), new Rectangle(340 - 198 * 9 / 25, 345, 300, 30), col, 0.8f, 0.12f);
+			#endregion
+			#region Bottom
+			NormalFont.CentreDraw(Localization.GetText("ResultScreen.LeaveRestart", MiscUtil.GetInputKeys(InputIdentity.Confirm)[0], MiscUtil.GetInputKeys(InputIdentity.Reset)[0]), new Vector2(320, 455), col, 0.8f, 0.5f);
+			#endregion
 			#region Item
 			NormalFont.CentreDraw(Localization.GetText("ResultScreen.UnlockItem"), new Vector2(320, 140), Color.White * itemUnlockAlpha[0], itemUnlockScale, GetRadian(itemTextAngle), 1);
 			if (curItem != null)
 			{
 				NormalFont.CentreDraw(curItem.Name, new Vector2(320, 340), Color.White * itemUnlockAlpha[1], 1, 0, 1);
-				float dep = Depth;
-				Depth = 1;
-				FormalDraw(curItem.Image, new Vector2(320, 240), Color.White * itemUnlockAlpha[1], 0, new Vector2(curItem.Image.Width, curItem.Image.Height) / 2f);
-				Depth = dep;
+				GeneralDraw(curItem.Image, new Vector2(320, 240), Color.White * itemUnlockAlpha[1], depth: 1);
 			}
 			#endregion
 		}
 
 		private readonly float CurrentAccuracy = 0, rerate = 0;
-		private int curSelection = 0, RatingSelection = 0;
 		public override void Update()
 		{
+			//Lerp
+			DisplayValues.Score = MathF.Ceiling(float.Lerp(DisplayValues.Score, score, 0.04f));
+			DisplayValues.SAccuracy = float.Lerp(DisplayValues.SAccuracy, CurrentAccuracy, 0.04f);
+			DisplayValues.Miss = MathF.Ceiling(float.Lerp(DisplayValues.Miss, missCount, 0.04f));
+			DisplayValues.Okay = MathF.Ceiling(float.Lerp(DisplayValues.Okay, okayCount, 0.04f));
+			DisplayValues.Nice = MathF.Ceiling(float.Lerp(DisplayValues.Nice, niceCount, 0.04f));
+			DisplayValues.Perfect = MathF.Ceiling(float.Lerp(DisplayValues.Perfect, perfectCount, 0.04f));
+			DisplayValues.PAccuracy = float.Lerp(DisplayValues.PAccuracy, perfectPercent, 0.04f);
+			DisplayValues.PerfectE = MathF.Ceiling(float.Lerp(DisplayValues.PerfectE, perfectECount, 0.04f));
+			DisplayValues.PerfectL = MathF.Ceiling(float.Lerp(DisplayValues.PerfectL, perfectLCount, 0.04f));
+			DisplayValues.Combo = MathF.Ceiling(float.Lerp(DisplayValues.Combo, maxCombo, 0.04f));
 			if ((ExtraState & ExtraResultScreens.ItemTextFading) != 0 && itemUnlockAlpha[0] == 0)
 			{
 				ExtraState ^= ExtraResultScreens.ItemUnlocked | ExtraResultScreens.ItemTextFading;
@@ -600,7 +540,6 @@ internal partial class StateShower
 				alpha += 0.01f;
 			if ((encouraged || itemUnlocked) && alpha > 0.1f)
 				alpha -= 0.01f;
-			analyzeShow.Alpha = alpha;
 			if (gamePlayed.Attributes != null)
 			{
 				float[] difficultyValues = new float[3];
@@ -610,29 +549,20 @@ internal partial class StateShower
 					difficultyText[1] = difficultyValues[1].ToString("F1");
 				if (gamePlayed.Attributes.APDifficulty.TryGetValue((Difficulty)difficulty, out difficultyValues[2]))
 					difficultyText[2] = difficultyValues[2].ToString("F1");
-				CurrentChartConstRating = SingleCalculateRating(new Vector3(difficultyValues[0], difficultyValues[1], difficultyValues[2]), rerate);
 			}
 
-			int lastSelection = curSelection, lastSelection2 = RatingSelection;
 			if (!encouraged)
 			{
-				if (IsKeyPressed120f(InputIdentity.MainDown))
-					curSelection++;
-				else if (IsKeyPressed120f(InputIdentity.MainUp))
-					curSelection--;
-				if (curSelection == 2 && AC && !string.IsNullOrEmpty(difficultyText[0]))
+				//Net result
+				if (OverallNetManager.IsSuccessfullyConnected)
 				{
 					if (IsKeyPressed120f(InputIdentity.MainLeft))
-						RatingSelection = 0;
+						NetResultPage--;
 					else if (IsKeyPressed120f(InputIdentity.MainRight))
-						RatingSelection = 1;
+						NetResultPage++;
+					NetResultPage = int.Clamp(NetResultPage, 0, NetResultMaxPage);
 				}
 			}
-			curSelection = Posmod(curSelection, 3);
-			if (lastSelection != curSelection || lastSelection2 != RatingSelection)
-				Fight.Functions.PlaySound(FightResources.Sounds.changeSelection);
-
-			analyzeShow.Enabled = curSelection == 1;
 
 			if (IsKeyPressed120f(InputIdentity.Confirm))
 			{
@@ -646,7 +576,7 @@ internal partial class StateShower
 				else
 					MoveToNextState();
 			}
-			else if (IsKeyPressed120f(InputIdentity.Reset))
+			else if (IsKeyPressed120f(InputIdentity.Reset) && !OverallNetManager.IsSuccessfullyConnected)
 				StartSong();
 		}
 
@@ -654,6 +584,13 @@ internal partial class StateShower
 		private void CreateNextUI()
 		{
 			Dispose();
+			if (OverallNetManager.IsSuccessfullyConnected)
+			{
+				OverallNetManager.ConnectedUserData curDat = OverallNetManager.PlayerData;
+				curDat.IsPlayingAChart = false;
+				curDat.IsReady = false;
+				OverallNetManager.PlayerData = curDat;
+			}
 			ResetScene(new GameMenuScene());
 			DelayEventProcessor.AddInstantEvent(2, GameMain.ResetRendering);
 		}

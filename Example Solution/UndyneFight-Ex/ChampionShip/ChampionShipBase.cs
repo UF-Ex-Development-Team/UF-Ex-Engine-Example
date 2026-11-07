@@ -13,6 +13,7 @@ public class ChampionShip(SongSet fightSet)
 	/// The list of fights of the championship
 	/// </summary>
 	public SongSet Fights { get; } = fightSet;
+	public IWaveSet[] WaveList { get; internal set; }
 	/// <summary>
 	/// The title of the championship
 	/// </summary>
@@ -88,11 +89,11 @@ public class ChampionShip(SongSet fightSet)
 		Dictionary<string, DivisionInformation> result = [];
 		for (int i = 0; i < types.Length; i++)
 		{
-			foreach (KeyValuePair<string, Difficulty> v in songs[i].DifficultyPanel)
+			foreach ((string name, Difficulty dif) in songs[i].DifficultyPanel)
 			{
-				_ = result.TryAdd(v.Key, new(v.Key, [], new()));
-				Dictionary<string, Tuple<int, Difficulty>> map = result[v.Key].Info;
-				map.Add(songs[i].GameContent.FightName, new(i, v.Value));
+				_ = result.TryAdd(name, new(name, [], new()));
+				Dictionary<string, Tuple<int, Difficulty>> map = result[name].Info;
+				map.Add(songs[i].GameContent.FightName, new(i, dif));
 			}
 		}
 		return result;

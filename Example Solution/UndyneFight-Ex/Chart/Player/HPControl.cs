@@ -77,12 +77,12 @@ public partial class Player
 		public bool ScoreProtected { get; set; } = false;
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		internal void GetMark(int mark) => missionLostSpeed = mark switch
+		internal void GetMark(DefaultValues.ScoreType mark) => missionLostSpeed = mark switch
 		{
-			<= 1 => missionLostSpeed * 0.8f + 0.2f * 0.2f,
-			2 => missionLostSpeed * 0.85f + 0.12f * 0.15f,
-			3 => missionLostSpeed * 0.965f,
-			>= 4 => missionLostSpeed < 0.05f ? (missionLostSpeed * 0.95f + 0.05f * 0.1f) : missionLostSpeed,
+			DefaultValues.ScoreType.Miss or DefaultValues.ScoreType.Okay => missionLostSpeed * 0.8f + 0.2f * 0.2f,
+			DefaultValues.ScoreType.Nice => missionLostSpeed * 0.85f + 0.12f * 0.15f,
+			DefaultValues.ScoreType.Perfect => missionLostSpeed * 0.965f,
+			_ => missionLostSpeed < 0.05f ? (missionLostSpeed * 0.95f + 0.05f * 0.1f) : missionLostSpeed,
 		};
 		/// <summary>
 		/// Applies the invincibility frames to the heart
@@ -110,7 +110,10 @@ public partial class Player
 			if (((CurrentScene as FightScene).Mode & GameMode.NoGreenSoul) == 0 || heart.SoulType != 1)
 			{
 				if (!InvincibleToPhysic)
+				{
 					hp.Value -= DamageTaken;
+					CurrentFightingScene.DamageTaken += DamageTaken;
+				}
 				if (KR)
 					KRHP += KRDamage;
 			}
@@ -181,7 +184,10 @@ public partial class Player
 			if (Buffed || BuffedLevel != 0)
 			{
 				float dif = BuffedLevel + (Buffed ? BuffDifficulty : 0);
-				hp.Value -= maxHP * (missionLostSpeed - float.Clamp(0.03f - hp.Value / maxHP * 0.03f, 0, 0.01f) * 6.5f / dif) * 0.0014f * dif * (NoHIT ? 1 : MathF.Min(1, hp / maxHP * 5 * 0.8f + 0.2f));
+				float hpChange = maxHP * (missionLostSpeed - float.Clamp(0.03f - hp.Value / maxHP * 0.03f, 0, 0.01f) * 6.5f / dif) * 0.0014f * dif * (NoHIT ? 1 : MathF.Min(1, hp / maxHP * 5 * 0.8f + 0.2f));
+				hp.Value -= hpChange;
+				if (hpChange > 0)
+					CurrentFightingScene.DamageTaken += hpChange;
 			}
 			if (KR && KRHP > 0)
 			{
@@ -193,6 +199,7 @@ public partial class Player
 				krLose += lose2;
 				KRHP -= lose2;
 				hp.Value -= krLose;
+				CurrentFightingScene.DamageTaken += krLose;
 			}
 
 			if (hp.Hacked)
@@ -201,16 +208,21 @@ public partial class Player
 			if (hp > 0)
 				return;
 			//Process practice mode and death
-			if (((CurrentScene as FightScene).Mode & GameMode.Practice) == 0)
+			if ((CurrentScene is FightScene fScene) && (fScene.Mode & GameMode.Practice) == 0)
 			{
-				_ = GameMain.instance.SetGameoverScreen();
-				(CurrentScene as FightScene).PlayDeath();
+				fScene.PlayDeath();
 				return;
 			}
 			else if (!CurrentFightingScene.HPReached0)
 			{
 				PlayerManager.CurrentUser?.PlayerStatistic.AddDeath();
 				CurrentFightingScene.HPReached0 = true;
+			}
+			//In practice mode, revive the player
+			if ((CurrentFightingScene.Mode & GameMode.Practice) != 0)
+			{
+				CurrentFightingScene.PlayerInstance.hpControl.Regenerate();
+				CurrentFightingScene.DeathCount++;
 			}
 		}
 		/// <summary>

@@ -12,7 +12,7 @@ public class FireBall : CircleCollisionBarrage
 	public FireBall(EaseUnit<vec2> _positionRoute) : base(4)
 	{
 		PositionRoute = _positionRoute.Easing;
-		Depth = 0.5f;
+		Depth = DefaultValues.DEFAULT_FIREBALL_DEPTH;
 		UpdateIn120 = true;
 	}
 	/// <inheritdoc/>
@@ -22,5 +22,5 @@ public class FireBall : CircleCollisionBarrage
 		time += 0.5f;
 	}
 	/// <inheritdoc/>
-	public override void Draw() => GeneralDraw(FightResources.Sprites.fireball, Centre, BarrageColorTypes[ColorType] * Alpha, Scale * new vec2((time % 10) < 5 ? -1 : 1, 1), Rotation);
+	public override void Draw() => GeneralDraw(FightResources.Sprites.fireball, Centre, BarrageColorTypes[ColorType] * Alpha, Scales * new vec2((time % 10) < 5 ? -1 : 1, 1), Rotation);
 }

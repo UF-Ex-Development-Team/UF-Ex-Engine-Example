@@ -11,7 +11,7 @@ internal class Bullet : Barrage
 	public Bullet(Vector2 centre, float rotation)
 	{
 		controlLayer = Surface.Hidden;
-		Depth = 0.64f;
+		Depth = DefaultValues.DEFAULT_GUN_BULLET_DEPTH;
 		missionCentre = centre;
 		Rotation = rotation;
 
@@ -63,13 +63,7 @@ internal class Bullet : Barrage
 		if (!screen.Contain(Centre))
 			Dispose();
 	}
-	public override void Draw() => FormalDraw(Image, Centre, Color.White, 0.8f, GetRadian(Rotation), ImageCentre);
-	public override void Dispose()
-	{
-		if (!hasHit && MarkScore)
-			PushScore(score);
-		base.Dispose();
-	}
+	public override void Draw() => GeneralDraw(Image, Centre, Color.White, new(0.8f), GetRadian(Rotation));
 	public override void GetCollide(Player.Heart player)
 	{
 		float res = (Centre - player.Centre).Length() - 11;
@@ -87,7 +81,7 @@ internal class Bullet : Barrage
 			OkayCollision();
 		else if (res <= 6)
 			NiceCollision();
-		if (score == 3 || ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) == 0 || !MarkScore)
+		if (score == DefaultValues.ScoreType.Perfect || ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) == 0 || !MarkScore)
 			return;
 
 		if (!hasHit)
@@ -99,7 +93,7 @@ internal class Bullet : Barrage
 	}
 }
 /// <summary>
-/// A (Sudden Changes) bullet
+/// A (Sudden Changes) bullet crosshair
 /// </summary>
 public class GunBullet : Entity
 {
@@ -122,7 +116,7 @@ public class GunBullet : Entity
 		Image = Sprites.target;
 		Centre = targetCentre;
 		this.delayTime = delayTime;
-		Depth = 0.41f;
+		Depth = DefaultValues.DEFAULT_GUN_BULLET_CROSSHAIR_DEPTH;
 		this.rotations = rotations;
 	}
 
@@ -141,11 +135,11 @@ public class GunBullet : Entity
 		if (appearTime <= delayTime)
 		{
 			foreach (float item in rotations)
-				FormalDraw(Image, Centre + GetVector2(currentDistance, item), Color.White * alpha, 0.55f, 0, ImageCentre);
-			FormalDraw(Image, Centre, Color.White * 0.8f, 0.62f, 0, ImageCentre);
+				GeneralDraw(Image, Centre + GetVector2(currentDistance, item), Color.White * alpha, new(0.55f));
+			GeneralDraw(Image, Centre, Color.White * 0.8f, new(0.62f));
 		}
 		else
-			FormalDraw(Image, Centre, Color.White * alpha, 0.62f * lerp, 0, ImageCentre);
+			GeneralDraw(Image, Centre, Color.White * alpha, new(0.62f * lerp));
 	}
 	/// <inheritdoc/>
 	public override void Update()

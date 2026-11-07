@@ -154,7 +154,7 @@ public class Boneslab : Barrage, ICustomLength
 			else
 				currentHeight = missionHeight;
 
-			DisposingCheck:
+		DisposingCheck:
 			if (currentHeight < -4)
 				Dispose();
 		}
@@ -190,7 +190,7 @@ public class Boneslab : Barrage, ICustomLength
 		else if (res <= 4.5f)
 			NiceCollision();
 
-		if (score != 3 && ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0)
+		if (score != DefaultValues.ScoreType.Perfect && ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0)
 			MissCollision(heart);
 	}
 }

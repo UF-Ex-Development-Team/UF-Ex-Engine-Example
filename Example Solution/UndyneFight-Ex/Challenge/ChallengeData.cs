@@ -25,7 +25,7 @@ public class SingleChallenge(Challenge challenge) : ISaveLoad
 
 	/// <inheritdoc/>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public void Load(SaveInfo info) => TripleAccuracy = info.FloatValue;
+	public void Load(SaveInfo info) => TripleAccuracy = info.FloatValue > 3.15f ? 0 : info.FloatValue;
 
 	/// <inheritdoc/>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -45,9 +45,7 @@ public class ChallengeData() : ISaveLoad
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	internal void FinishChallenge(Challenge challenge)
 	{
-		float sum = 0;
-		for (int i = 0; i < challenge.ResultBuffer.Count; i++)
-			sum += challenge.ResultBuffer.ElementAt(i).Accuracy;
+		float sum = challenge.ResultBuffer.Sum(res => res.Accuracy);
 		SingleChallenge challengeData;
 		if (AllData.TryGetValue(challenge.Title, out SingleChallenge value))
 			challengeData = value;
@@ -61,8 +59,8 @@ public class ChallengeData() : ISaveLoad
 	{
 		foreach (SaveInfo next in info.Nexts.Values)
 		{
-			SingleChallenge challenge;
-			AllData.Add(next.Title, challenge = new SingleChallenge(FightSystem.ChallengeDictionary[next.Title]));
+			SingleChallenge challenge = new(FightSystem.ChallengeDictionary[next.Title]);
+			_ = AllData.TryAdd(next.Title, challenge);
 			challenge.Load(next);
 		}
 	}

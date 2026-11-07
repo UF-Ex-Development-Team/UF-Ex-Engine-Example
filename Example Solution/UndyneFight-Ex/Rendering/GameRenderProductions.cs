@@ -16,7 +16,7 @@ public static partial class GameStates
 	/// <summary>
 	/// The surface scale of the game
 	/// </summary>
-	public static float SurfaceScale => CurrentScene == null ? 1 : CurrentScene.CurrentDrawingSettings.SurfaceScale;
+	public static float SurfaceScale => CurrentScene?.CurrentDrawingSettings.SurfaceScale ?? 1;
 	internal static Settings.SettingsManager.DataLibrary.DrawingQuality Quality => Settings.SettingsManager.DataLibrary.drawingQuality;
 	/// <summary>
 	/// The world matrix

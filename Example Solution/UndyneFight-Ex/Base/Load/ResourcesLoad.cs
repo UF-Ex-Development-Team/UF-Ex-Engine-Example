@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using System.Buffers;
 using System.Reflection;
 using UndyneFight_Ex.GameInterface;
 using static UndyneFight_Ex.GlobalResources.Effects;
@@ -43,25 +44,15 @@ public class UFEXResourceAttribute(string path, Type type, int[] dim = null, str
 /// </summary>
 public static partial class GlobalResources
 {
-	/// <summary>
-	/// Loads a file (Cross-platform, internally calls <see cref="DrawingLab.LoadContent{T}(string, ContentManager)"/>)
-	/// </summary>
-	/// <typeparam name="T">Content type</typeparam>
-	/// <param name="path">Path to file</param>
-	/// <param name="cm">Content manager to use</param>
-	/// <returns>The loaded content</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static T LoadContent<T>(string path, ContentManager cm = null) => DrawingLab.LoadContent<T>(path, cm);
 	internal static async void Initialize(ContentManager loader)
 	{
 		Task task = new(()=>
 		{
 			//Content\FontTexture\Title.png
 			string root = GameStartUp.LoadingSettings.TitleTextureRoot;
-			string path = Path.Combine($"{AppContext.BaseDirectory}Content\\{root}".Split('\\'));
-			bool hasTitle;
-			if (hasTitle = File.Exists(path + ".xnb"))
-				loadingTexture = LoadContent<Texture2D>(root, loader);
+			string path = GlobalData.GetTruePath($"{AppContext.BaseDirectory}Content\\{root}");
+			if (File.Exists(path + ".xnb"))
+				loadingTexture = GlobalData.LoadContent<Texture2D>(root, loader);
 			PropertyInfo loadingTexProp = typeof(Sprites).GetProperty("loadingTexture");
 			(Attribute.GetCustomAttribute(loadingTexProp, typeof(UFEXResourceAttribute)) as UFEXResourceAttribute).Loaded = true;
 		});
@@ -92,9 +83,9 @@ public static partial class GlobalResources
 			for (int i = 0; i < ResourcesCount; i++)
 			{
 				PropertyInfo property = typeof(Sprites).GetProperties()[i];
-				if (Attribute.GetCustomAttribute(property, typeof(UFEXResourceAttribute)) is UFEXResourceAttribute attribute && !attribute.Loaded && File.Exists(Path.Combine($"{AppContext.BaseDirectory}Content\\{attribute.Path}.xnb".Split('\\'))))
+				if (Attribute.GetCustomAttribute(property, typeof(UFEXResourceAttribute)) is UFEXResourceAttribute attribute && !attribute.Loaded && File.Exists(GlobalData.GetTruePath($"{AppContext.BaseDirectory}Content\\{attribute.Path}.xnb")))
 				{
-					property.SetValue(typeof(Sprites), LoadContent<Texture2D>(attribute.Path, loader));
+					property.SetValue(typeof(Sprites), GlobalData.LoadContent<Texture2D>(attribute.Path, loader));
 					attribute.Loaded = true;
 				}
 			}
@@ -105,8 +96,8 @@ public static partial class GlobalResources
 		task = new(() =>
 		{
 			//Load shaders
-			backGroundShader = new Shader(LoadContent<Effect>("Global\\Shaders\\BackGroundShader", loader));
-			reduceBlueShader = new Shader(LoadContent<Effect>("Global\\Shaders\\reduceBlue", loader))
+			backGroundShader = new Shader(GlobalData.LoadContent<Effect>("Global\\Shaders\\BackGroundShader", loader));
+			reduceBlueShader = new Shader(GlobalData.LoadContent<Effect>("Global\\Shaders\\ReduceBlue", loader))
 			{
 				StableEvents = (s) => s.Parameters["reduceBlueAmount"].SetValue(Settings.SettingsManager.DataLibrary.reduceBlueAmount / 200f)
 			};
@@ -117,7 +108,7 @@ public static partial class GlobalResources
 				PropertyInfo property = typeof(FightResources.Shaders).GetProperties()[i];
 				if (Attribute.GetCustomAttribute(property, typeof(UFEXResourceAttribute)) is UFEXResourceAttribute attribute && !attribute.Loaded)
 				{
-					Effect shd = LoadContent<Effect>(attribute.Path, loader);
+					Effect shd = GlobalData.LoadContent < Effect >(attribute.Path, loader);
 					object instance = Activator.CreateInstance(property.PropertyType, shd);
 					property.SetValue(typeof(FightResources.Shaders), instance);
 					attribute.Loaded = true;
@@ -175,7 +166,7 @@ public static partial class GlobalResources
 		/// <summary>
 		/// FZXS 12
 		/// </summary>
-		[UFEXResource("Sprites\\font\\Chinese", typeof(GLFont))]
+		[UFEXResource("Sprites\\font\\chinese", typeof(GLFont))]
 		public static GLFont Chinese { get; internal set; }
 	}
 	/// <summary>
@@ -271,15 +262,6 @@ public static partial class GlobalResources
 public static class FightResources
 {
 	/// <summary>
-	/// Loads a file (Cross-platform, internally calls <see cref="DrawingLab.LoadContent{T}(string, ContentManager)"/>)
-	/// </summary>
-	/// <typeparam name="T">Content type</typeparam>
-	/// <param name="path">Path to file</param>
-	/// <param name="cm">Content manager to use</param>
-	/// <returns>The loaded content</returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static T LoadContent<T>(string path, ContentManager cm = null) => DrawingLab.LoadContent<T>(path, cm);
-	/// <summary>
 	/// The entire spritesheet for UF-Ex
 	/// </summary>
 	private static Texture2DAtlas _spritesheet;
@@ -358,12 +340,12 @@ public static class FightResources
 				PropertyInfo property = typeof(Sounds).GetProperties()[i];
 				if (Attribute.GetCustomAttribute(property, typeof(UFEXResourceAttribute)) is UFEXResourceAttribute attribute && !attribute.Loaded)
 				{
-					property.SetValue(typeof(Sounds), LoadContent<SoundEffect>(attribute.Path, loader));
+					property.SetValue(typeof(Sounds), GlobalData.LoadContent<SoundEffect>(attribute.Path, loader));
 					attribute.Loaded = true;
 				}
 			}
 			#region Other
-			// FightSprites.aimer = _spritesheet.LoadSprite("FightSprites\\aimer");
+			//FightSprites.aimer = _spritesheet.LoadSprite("FightSprites\\aimer");
 			//FightSprites.dialogBox = _spritesheet.LoadSprite("FightSprites\\dialogBox");
 			//FightSprites.stopBar = _spritesheet.LoadSprite("FightSprites\\stop_bar");
 			//FightSprites.movingBar = _spritesheet.LoadSprite("FightSprites\\moving_bar");
@@ -611,12 +593,12 @@ public static class FightResources
 		/// <summary>
 		/// Sprites of GB beginning to fire
 		/// </summary>
-		[UFEXResource("GB\\s\\frame_<1>", typeof(Texture2D), [5])]
+		[UFEXResource("GB\\Idle\\frame_<1>", typeof(Texture2D), [5])]
 		public static Texture2D[] GBStart { get; internal set; } = new Texture2D[5];
 		/// <summary>
 		/// Sprites of GB during fire
 		/// </summary>
-		[UFEXResource("GB\\p\\frame_<1>", typeof(Texture2D), [2])]
+		[UFEXResource("GB\\Shooting\\frame_<1>", typeof(Texture2D), [2])]
 		public static Texture2D[] GBShooting { get; internal set; } = new Texture2D[2];
 		/// <summary>
 		/// Sprite of GB beam
@@ -1035,12 +1017,21 @@ public static class Resource
 			Rectangle sourceRectangle = textureRegion.Bounds;
 			//Create a new Texture2D with the dimensions of the region
 			Texture2D newTexture = new(graphicsDevice, sourceRectangle.Width, sourceRectangle.Height);
-			//Create a color array to hold the pixel data of the region
-			Color[] data = new Color[sourceRectangle.Width * sourceRectangle.Height];
-			//Get the pixel data from the source texture within the specified region
-			sourceTexture.GetData(0, sourceRectangle, data, 0, data.Length);
-			//Set the pixel data to the new texture
-			newTexture.SetData(data);
+			//Create a color array to hold the pixel data of the region.
+			//Use ArrayPool to reduce LOH churn for large textures.
+			int pixelCount = sourceRectangle.Width * sourceRectangle.Height;
+			Color[] data = ArrayPool<Color>.Shared.Rent(pixelCount);
+			try
+			{
+				//Get the pixel data from the source texture within the specified region
+				sourceTexture.GetData(0, sourceRectangle, data, 0, pixelCount);
+				//Set the pixel data to the new texture
+				newTexture.SetData(data, 0, pixelCount);
+			}
+			finally
+			{
+				ArrayPool<Color>.Shared.Return(data);
+			}
 			_texData.Add(textureRegion.Name, newTexture);
 			return newTexture;
 		}

@@ -12,7 +12,7 @@ public partial class Arrow
 	protected class ArrowPiece : Entity
 	{
 		/// <inheritdoc/>
-		public override void Draw() => FormalDraw(Image, Centre, Color.White * 0.5f * alp, Scale, GetRadian(Rotation), ImageCentre);
+		public override void Draw() => GeneralDraw(Image, Centre, Color.White * 0.5f * alp, Scales, GetRadian(Rotation));
 
 		/// <inheritdoc/>
 		public override void Update()
@@ -35,9 +35,9 @@ public partial class Arrow
 		/// <param name="rotation">The rotation of the shard</param>
 		/// <param name="image">The sprite of the shard</param>
 		/// <param name="scale">The size of the shard</param>
-		public ArrowPiece(Vector2 speed, Vector2 pos, float rotation, Texture2D image, float scale)
+		public ArrowPiece(Vector2 speed, Vector2 pos, float rotation, Texture2D image, Vector2 scale)
 		{
-			Scale = scale;
+			Scales = scale;
 			UpdateIn120 = true;
 			Depth = 0.5f;
 			fadeSpeed = Rand(0.04f, 0.09f);

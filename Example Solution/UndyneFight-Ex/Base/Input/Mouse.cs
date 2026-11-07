@@ -22,9 +22,10 @@ public static class MouseSystem
 		if (!GameOnFocus)
 			return;
 		Vector2 real = CurrentState.Position.ToVector2();
-
-		Vector2 centre = new Vector2(240 * Aspect, 240) * SurfaceScale;
-		Vector2 delta = (real - ScreenSize / 2f) / float.Min(ScreenSize.X / (480f * Aspect * SurfaceScale), ScreenSize.Y / (480f * SurfaceScale));
+		float height = 240 * SurfaceScale;
+		Vector2 centre = new(height * Aspect, height);
+		height *= 2;
+		Vector2 delta = (real - ScreenSize / 2f) / float.Min(ScreenSize.X / (height * Aspect), ScreenSize.Y / height);
 		TransferredPosition = centre + delta;
 	}
 	private static MouseState currentState, lastState;
@@ -43,7 +44,7 @@ public static class MouseSystem
 	/// </summary>
 	public static Vector2 TransferredPosition { get; private set; }
 	/// <summary>
-	/// The size of the screen
+	/// The size of the screen (Default 640x480)
 	/// </summary>
 	public static Vector2 ScreenSize { private get; set; } = new Vector2(640, 480);
 	/// <summary>

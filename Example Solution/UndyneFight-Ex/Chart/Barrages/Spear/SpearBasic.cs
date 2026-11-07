@@ -1,5 +1,4 @@
-﻿using static UndyneFight_Ex.Fight.AdvanceFunctions;
-using static UndyneFight_Ex.MathUtil;
+﻿using static UndyneFight_Ex.MathUtil;
 
 namespace UndyneFight_Ex.Entities;
 
@@ -27,14 +26,7 @@ public class Spear : LineCollisionBarrage
 		Image = FightResources.Sprites.spear;
 	}
 	/// <inheritdoc/>
-	public override void Draw() => FormalDraw(Image, Centre, DrawingColor * Alpha, GetRadian(Rotation), ImageCentre);
-	/// <inheritdoc/>
-	public override void Dispose()
-	{
-		if (!hasHit && MarkScore)
-			PushScore(score);
-		base.Dispose();
-	}
+	public override void Draw() => GeneralDraw(Image, Centre, DrawingColor * Alpha, Scales, GetRadian(Rotation));
 
 	private static CollideRect screen = new(-50, -50, 740, 580);
 	/// <inheritdoc/>
@@ -84,8 +76,9 @@ public class Spear : LineCollisionBarrage
 	{
 		if (Alpha <= 0.9f)
 			return;
-		Points.Start = Centre + GetVector2(29, Rotation);
-		Points.End = Centre - GetVector2(29, Rotation);
+		Vector2 delta = GetVector2(29 * Scales.X, Rotation);
+		Points.Start = Centre + delta;
+		Points.End = Centre - delta;
 		base.GetCollide(heart);
 	}
 }

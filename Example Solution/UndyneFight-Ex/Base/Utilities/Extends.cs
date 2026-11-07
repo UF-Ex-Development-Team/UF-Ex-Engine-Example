@@ -1,6 +1,7 @@
 ﻿using UndyneFight_Ex.Entities;
 using UndyneFight_Ex.SongSystem;
 using static Extends.DrawingUtil;
+using static UndyneFight_Ex.Entities.SimplifiedEasing;
 using static UndyneFight_Ex.Fight.Functions;
 using static UndyneFight_Ex.FightResources;
 
@@ -10,7 +11,7 @@ namespace Extends;
 /// <summary>
 /// A star (Used in Hopes and Dreams) (Please use something else)
 /// </summary>
-public class Star : Entity, ICollideAble, ICustomMotion
+public class Star : Barrage
 {
 	private class StarShadow : Entity
 	{
@@ -30,7 +31,7 @@ public class Star : Entity, ICollideAble, ICustomMotion
 		{
 			Depth = 0.74f;
 			alpha -= 0.08f;
-			FormalDraw(Image, Centre, color * alpha, scale, Rotation * MathF.PI / 180, ImageCentre);
+			GeneralDraw(Image, Centre, color * alpha, new(scale), Rotation * MathF.PI / 180);
 		}
 		public override void Update()
 		{
@@ -121,7 +122,7 @@ public class Star : Entity, ICollideAble, ICustomMotion
 	public override void Draw()
 	{
 		Depth = 0.75f;
-		FormalDraw(Image, Centre, new Color(drawcolor.R + light.R, drawcolor.G + light.G, drawcolor.B + light.B, drawcolor.A + light.A), Scale, Rotation * MathF.PI / 180, ImageCentre);
+		GeneralDraw(Image, Centre, new Color(drawcolor.R + light.R, drawcolor.G + light.G, drawcolor.B + light.B, drawcolor.A + light.A), Scales, Rotation * MathF.PI / 180);
 	}
 	/// <inheritdoc/>
 	public override void Update()
@@ -139,8 +140,8 @@ public class Star : Entity, ICollideAble, ICustomMotion
 		if (AppearTime >= 720)
 			Dispose();
 	}
-	private int scoreResult = 3;
-	private bool hasHit = false;
+	private DefaultValues.ScoreType scoreResult = DefaultValues.ScoreType.Perfect;
+	private readonly bool hasHit = false;
 	private static JudgementState JudgeState => GameStates.CurrentScene is SongFightingScene ? CurrentFightingScene.JudgeState : JudgementState.Lenient;
 	/// <summary>
 	/// Whether the star counts to the score or not
@@ -152,7 +153,7 @@ public class Star : Entity, ICollideAble, ICustomMotion
 	public bool AutoDispose { private get; set; } = true;
 	/// <inheritdoc/>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public void GetCollide(Player.Heart heart)
+	public override void GetCollide(Player.Heart heart)
 	{
 		float res = Collide(heart.Centre);
 		if ((colorType == 1 && !heart.IsMoved) || (colorType == 2 && heart.IsMoved))
@@ -167,31 +168,13 @@ public class Star : Entity, ICollideAble, ICustomMotion
 		int offset = 3 - (int)JudgeState;
 		bool needAP = ((CurrentScene as FightScene).Mode & GameMode.PerfectOnly) != 0;
 		if (res < 0)
-		{
-			if (!hasHit)
-				UndyneFight_Ex.Fight.AdvanceFunctions.PushScore(0);
-			LoseHP(Heart);
-			hasHit = true;
-		}
+			MissCollision(heart);
 		else if (res <= 1.6f - offset * 0.4f)
-		{
-			if (scoreResult >= 2)
-			{ scoreResult = 1; Player.CreateCollideEffect(Color.LawnGreen, 3f); }
-		}
+			OkayCollision();
 		else if (res <= 4.2f - offset * 1.2f)
-		{
-			if (scoreResult >= 3)
-			{ scoreResult = 2; Player.CreateCollideEffect(Color.LightBlue, 6f); }
-		}
-		if (scoreResult != 3 && needAP && MarkScore)
-		{
-			if (!hasHit)
-			{
-				UndyneFight_Ex.Fight.AdvanceFunctions.PushScore(0);
-				LoseHP(Heart);
-				hasHit = true;
-			}
-		}
+			NiceCollision();
+		if (scoreResult != DefaultValues.ScoreType.Perfect && needAP && MarkScore)
+			MissCollision(heart);
 	}
 	/// <inheritdoc/>
 	public override void Dispose()
@@ -224,6 +207,7 @@ public class Star : Entity, ICollideAble, ICustomMotion
 /// <summary>
 /// A fireball
 /// </summary>
+[Obsolete("Use Entities.FireBall")]
 public class Fireball : Entity, ICustomMotion, ICollideAble
 {
 	private int colorType = 0;
@@ -294,7 +278,7 @@ public class Fireball : Entity, ICustomMotion, ICollideAble
 	public override void Draw()
 	{
 		Depth = 0.9f;
-		FormalDraw(Image, Centre, drawcolor * Alpha, Scale * new Vector2(index == 1 ? -1 : 1, 1), Rotation, ImageCentre);
+		GeneralDraw(Image, Centre, drawcolor * Alpha, Scale * new Vector2(index == 1 ? -1 : 1, 1), Rotation);
 	}
 	/// <inheritdoc/>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -427,13 +411,13 @@ public static class Someway
 			}
 		}
 		curWave.CreateChart(starttime, beat, arrowspeed, [.. rhythmList]);
-#if DEBUG && false
-		FileStream stream = new("Converter.txt", FileMode.OpenOrCreate);
+#if DEBUG
+		FileStream stream = new("Converter.txt", FileMode.Create);
 		StreamWriter textWriter = new(stream);
-		foreach (var v in eventsname)
+		foreach (string v in eventsname)
 			textWriter.WriteLine($"RegisterFunctionOnce(\"{v}\", () => {{\n\t\n}});");
 		string allChart = string.Empty;
-		for (int i = 0; i < rhythmList.Count; i++)
+		for (int i = 0, k = 0; i < rhythmList.Count; i++)
 		{
 			//Convert empty
 			if (rhythmList[i] == "/")
@@ -448,11 +432,15 @@ public static class Someway
 				rhythmList.RemoveRange(i + 1, 2);
 			}
 			//Convert single function with bracket to no bracket
-			if (MathUtil.CountSubstring(rhythmList[i], "(") == 1)
+			if (StringUtil.SubstringCount(rhythmList[i], "(") == 1)
 				rhythmList[i] = rhythmList[i][1..^1];
 			allChart += $"\"{rhythmList[i]}\", ";
-			if (i % 8 == 0 && i > 0)
+			if (i % 8 == 7 && i > 0)
+			{
 				allChart += "\n\t";
+				if (++k % 4 == 0)
+					allChart += "\n\t";
+			}
 		}
 		textWriter.WriteLine($"CreateChart(BeatTime({starttime / beat}), BeatTime({beat / beat}), {(arrowspeed == (int)arrowspeed ? arrowspeed : arrowspeed + "f")}, [\n\t{allChart}\n]);");
 		textWriter.Flush();
@@ -545,7 +533,7 @@ public static class DrawingUtil
 			});
 	}
 	/// <summary>
-	/// Sets the screen scale to the target size in the given duration using Quadratic easing (<see cref="SimplifiedEasing.EaseState.Quad"/>)
+	/// Sets the screen scale to the target size in the given duration using Quadratic easing (<see cref="EaseState.Quad"/>)
 	/// </summary>
 	/// <param name="size">The target size of the screen</param>
 	/// <param name="duration">The duration of the lerp</param>
@@ -579,7 +567,7 @@ public static class DrawingUtil
 		}, time / 2, false);
 	}
 	/// <summary>
-	/// Sets the screen angle to the target angle in the given duration using Quadratic easing (<see cref="SimplifiedEasing.EaseState.Quad"/>)
+	/// Sets the screen angle to the target angle in the given duration using Quadratic easing (<see cref="EaseState.Quad"/>)
 	/// </summary>
 	/// <param name="angle">The target angle of the screen</param>
 	/// <param name="time">The duration of the lerp</param>
@@ -605,12 +593,13 @@ public static class DrawingUtil
 			t++;
 		}, time / 2, false);
 		float t2 = 0, start2 = start + MaxAngle, end2 = start, del2 = start2 - end2;
-		DelayEventProcessor.AddTimeRangedEvent(time / 2f + 1, () =>
+		DelayEventProcessor.AddTimeRangedEvent(time / 2f, () =>
 		{
 			float x = t2 / (time / 2f - 1), f = x * x;
 			ScreenDrawing.ScreenAngle = start2 - del2 * f;
 			t2++;
-		}, time / 2f, false);
+		}, time / 2f - 1, false);
+		DelayEventProcessor.AddInstantEvent(time - 1, () => ScreenDrawing.ScreenAngle = start);
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining), Obsolete("There are better functions")]
 	public static void PlusScreenScale(float MaxSize, float time)
@@ -683,23 +672,20 @@ public static class DrawingUtil
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static void FadeScreen(float inDuration, float duration, float outDuration, Color? color = null)
 	{
-		if (inDuration == 0)
-		{
-			MaskSquare maskSquare = new(-320, -240, 960, 720, (int)(inDuration + duration + outDuration), color ?? Color.Black, 1);
-			CreateEntity(maskSquare);
-			DelayEventProcessor.AddTimeRangedEvent(duration, () => maskSquare.alpha -= 1 / outDuration, outDuration + 1, false);
-		}
-		else if (inDuration <= 0)
+		if (inDuration <= 0)
 		{
 			throw new ArgumentOutOfRangeException(nameof(inDuration), string.Format("the parameter {0} must be greater than 0.", nameof(inDuration)));
 		}
-		else
+		ImageEntity en = new(Sprites.pixUnit)
 		{
-			MaskSquare maskSquare = new(-320, -240, 960, 720, (int)(inDuration + duration + outDuration), color ?? Color.Black, 0);
-			CreateEntity(maskSquare);
-			DelayEventProcessor.AddTimeRangedEvent(0, () => maskSquare.alpha += 1 / inDuration, inDuration + 1, false);
-			DelayEventProcessor.AddTimeRangedEvent(inDuration + 1 + duration, () => maskSquare.alpha -= 1 / outDuration, outDuration + 1, false);
-		}
+			Scale = 1080,
+			Centre = new Vector2(320, 240),
+			BlendColor = color ?? Color.Black,
+			Depth = 1
+		};
+		CreateEntity(en);
+		RunEase(s => en.Alpha = s, inDuration == 0 ? Linear(outDuration, 1, 0) : LinkEase(Linear(inDuration, 0, 1), Stable(duration, 1), Linear(outDuration, 1, 0)));
+		DelayEventProcessor.AddInstantEvent(inDuration + duration + outDuration, en.Dispose);
 	}
 	/// <summary>
 	/// Rotates the camera and rotates back to origin
@@ -769,11 +755,7 @@ public static class DrawingUtil
 		public Color color = color;
 		public float alpha = alpha, time = 0, speed = 1;
 		/// <inheritdoc/>
-		public override void Draw()
-		{
-			FormalDraw(Sprites.pixUnit, new CollideRect(LeftUpX, LeftUpY, width, height), color * alpha);
-			Depth = 0.99f;
-		}
+		public override void Draw() => GeneralDraw(Sprites.pixUnit, new Vector2((LeftUpX + width) / 2, (LeftUpY + height) / 2), color * alpha, new Vector2(width, height), depth: 0.99f);
 		/// <inheritdoc/>
 		public override void Update()
 		{

@@ -214,7 +214,8 @@ internal static class SettingLibrary
 				DrawingLab.DrawLine(new Vector2(curX, 427) + delta, new Vector2(curX, 480) + delta, 3, Color.Lime * Alpha, 0.971f);
 				DrawingLab.DrawLine(new Vector2(memX, 427) + delta, new Vector2(memX, 480) + delta, 3, Color.Goldenrod * Alpha, 0.971f);
 				Depth = 0.92f;
-				FormalDraw(FightResources.Sprites.pixUnit, new CollideRect(new Vector2(x, 427) + delta, new(x * 4, 53)).ToRectangle(), Color.Black);
+				CollideRect rect = new(new Vector2(x, 427) + delta, new(x * 4, 53));
+				GeneralDraw(FightResources.Sprites.pixUnit, rect.Centre, Color.Black, rect.Size);
 				GlobalResources.Font.FightFont.CentreDraw(Delta.ToString("F1"), delta + new Vector2(320, 450), Color.Silver * Alpha, 1.0f, 0.0f, 0.99f);
 
 				if (memX == 0)

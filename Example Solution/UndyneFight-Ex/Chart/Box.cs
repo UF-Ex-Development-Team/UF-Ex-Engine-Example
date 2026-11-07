@@ -19,6 +19,20 @@ public class BoxVertex
 	/// Distance towards the target position
 	/// </summary>
 	internal float ToMissionDistance => (CurrentPosition - MissionPosition).Length();
+#if NET10_0_OR_GREATER
+	/// <summary>
+	/// The ID of the vertex
+	/// </summary>
+	public int ID
+	{
+		get
+		{
+			if (field == -1)
+				field = (Previous?.ID ?? -1) + 1;
+			return field;
+		}
+	} = -1;
+#else
 	/// <summary>
 	/// The ID of the vertex
 	/// </summary>
@@ -32,7 +46,7 @@ public class BoxVertex
 		}
 	}
 	private int _id = -1;
-
+#endif
 	/// <summary>
 	/// Creates a box vertex with a given position
 	/// </summary>

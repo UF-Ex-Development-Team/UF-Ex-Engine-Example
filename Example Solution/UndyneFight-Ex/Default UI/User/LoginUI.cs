@@ -142,8 +142,7 @@ internal class TextInputer : Entity, ISelectAble
 	{
 		if (isSelected && appearTime % 66 <= 32)
 		{
-			FormalDraw(GlobalResources.Sprites.cursor, new Vector2(collidingBox.TopLeft.X + 1 +
-				NormalFont.SFX.MeasureString(Result[..cursorPlace]).X, collidingBox.TopLeft.Y + 4), Color.White, 1.2f, 0.0f, Vector2.Zero);
+			GeneralDraw(GlobalResources.Sprites.cursor, new Vector2(collidingBox.TopLeft.X + 1 + NormalFont.SFX.MeasureString(Result[..cursorPlace]).X, collidingBox.TopLeft.Y + 4), Color.White, new(1.2f), 0, Vector2.Zero);
 		}
 		if (Result != null)
 			NormalFont.Draw(Result, collidingBox.TopLeft + new Vector2(3, 10), Color.LightCoral);
@@ -272,7 +271,7 @@ internal class RegisterUI : Entity
 		else if (currentSelect < 0)
 			currentSelect = 0;
 
-		A:
+	A:
 		if (last != currentSelect)
 		{
 			controls[last].DeSelected();

@@ -24,7 +24,7 @@ internal class ChampionShipCard : Entity, ISelectAble
 		this.championShip = championShip;
 		try
 		{
-			Image = LoadContent<Texture2D>(championShip.IconPath);
+			Image = GlobalData.LoadContent<Texture2D>(championShip.IconPath);
 		}
 		catch
 		{

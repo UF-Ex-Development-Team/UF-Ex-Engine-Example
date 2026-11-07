@@ -16,38 +16,57 @@ internal class HPShower : Entity
 	/// </summary>
 	public bool Vertical { set; private get; } = false;
 	private static bool Buffed => ((CurrentScene as FightScene).Mode & GameMode.Buffed) != 0;
+#if NET10_0_OR_GREATER
 	/// <summary>
 	/// The color of existing HP of the HP bar
 	/// </summary>
-	public Color HPExistColor { get => hpExistColor; set => hpExistColor = hpExistCurrent = value; }
+	public Color HPExistColor { get; set => field = hpExistCurrent = value; }
 	/// <summary>
 	/// The color of Max HP of the HP bar
 	/// </summary>
-	public Color HPLoseColor { get => hpLoseColor; set => hpLoseColor = hpLoseCurrent = value; }
+	public Color HPLoseColor { get; set => field = hpLoseCurrent = value; }
 	/// <summary>
 	/// The color of the KR bar
 	/// </summary>
-	public Color HPKRColor { get => hpKRColor; set => hpKRColor = hpKRCurrent = value; }
-	private Color hpExistColor, hpExistCurrent;
-	private Color hpLoseColor, hpLoseCurrent;
-	private Color hpKRColor, hpKRCurrent;
+	public Color HPKRColor { get; set => field = hpKRCurrent = value; }
+#else
+	/// <summary>
+	/// The color of existing HP of the HP bar
+	/// </summary>
+	public Color HPExistColor { get => _hpExistColor; set => _hpExistColor = hpExistCurrent = value; }
+	private Color _hpExistColor;
+	/// <summary>
+	/// The color of Max HP of the HP bar
+	/// </summary>
+	public Color HPLoseColor { get => _hpLoseColor; set => _hpLoseColor = hpLoseCurrent = value; }
+	private Color _hpLoseColor;
+	/// <summary>
+	/// The color of the KR bar
+	/// </summary>
+	public Color HPKRColor { get => _hpKRColor; set => _hpKRColor = hpKRCurrent = value; }
+	private Color _hpKRColor;
+#endif
+	private Color hpExistCurrent;
+	private Color hpLoseCurrent;
+	private Color hpKRCurrent;
 
 	public static HPShower instance;
-
+	internal bool IsFC = true;
+	internal bool IsAP = true;
 	public HPShower()
 	{
 		instance = this;
 		Image = hpText;
-		collidingBox = new(320, 455 - 12, 100, 24);
-		KRRect.Height = 24;
-		KRRect.Y = 458 - 12;
+		collidingBox = DefaultValues.DEFAULT_HP_BAR_BOX;
+		KRRect.Height = DefaultValues.DEFAULT_HP_BAR_SCALE.Y;
+		KRRect.Y = DefaultValues.DEFAULT_HP_BAR_POSITION.Y;
 
-		HPKRColor = Color.Fuchsia;
-		HPLoseColor = Color.Red;
-		HPExistColor = Color.Lime;
+		HPKRColor = DefaultValues.DEFAUL_HP_KR_COLOR;
+		HPLoseColor = DefaultValues.DEFAULT_HP_LOSE_COLOR;
+		HPExistColor = DefaultValues.DEFAULT_HP_EXIST_COLOR;
 	}
 
-	private CollideRect fullarea = new(320, 443, 100, 24);
+	private CollideRect fullarea = DefaultValues.DEFAULT_HP_BAR_BOX;
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void ResetArea(CollideRect rect) => fullarea = rect;
 	/// <summary>
@@ -58,7 +77,10 @@ internal class HPShower : Entity
 	{
 		float AlphaScale = CurrentDrawingSettings.UIColor.A / 255f;
 		Vector2 hpPos = Vertical ? new Vector2(CollidingBox.GetCentre().X, FullRect.Down + 45) : new Vector2(CollidingBox.X - 30, CollidingBox.GetCentre().Y);
-		GeneralDraw(Image, hpPos, CurrentDrawingSettings.UIColor, new Vector2(1.1f));
+		Color hpTextCol = CurrentDrawingSettings.UIColor;
+		if ((bool)UserService.Settings.GetSettingsValue("AdvancedIndicators") && IsFC)
+			hpTextCol = IsAP ? Color.Gold : HPExistColor;
+		GeneralDraw(Image, hpPos, hpTextCol, new Vector2(1.1f));
 		if (HeartAttribute.KR && PlayerInstance.hpControl.KRHPExist)
 			GeneralDraw(pixUnit, KRRect.GetCentre(), hpKRCurrent * AlphaScale, KRRect.Size, depth: 0.06f);
 		GeneralDraw(pixUnit, collidingBox.GetCentre(), hpExistCurrent * AlphaScale, collidingBox.Size, depth: 0.05f);
@@ -69,27 +91,18 @@ internal class HPShower : Entity
 		HeartAttribute.HP = float.Clamp(HeartAttribute.HP, 0, HeartAttribute.MaxHP);
 		float RoundHP = Round(HeartAttribute.HP, 2);
 		float CeilHP = Ceiling(HeartAttribute.HP);
-		if (((CurrentScene as FightScene).Mode & GameMode.Practice) != 0)
-			hpString = "inf";
+		if (((CurrentScene as FightScene).Mode & GameMode.Buffed) == 0 && HeartAttribute.BuffedLevel == 0)
+			hpString = $"{CeilHP} / {Ceiling(HeartAttribute.MaxHP)}";
+		else if (HeartAttribute.BuffedLevel != 0)
+		{
+			hpString = $"{MathUtil.FloatToString(RoundHP, 2)} / {Ceiling(HeartAttribute.MaxHP)}";
+		}
 		else
 		{
-			if (((CurrentScene as FightScene).Mode & GameMode.Buffed) == 0 && HeartAttribute.BuffedLevel == 0)
-				hpString = $"{CeilHP} / {Ceiling(HeartAttribute.MaxHP)}";
-			else if (HeartAttribute.BuffedLevel != 0)
-			{
-				hpString = $"{MathUtil.FloatToString(RoundHP, 2)} / {Ceiling(HeartAttribute.MaxHP)}";
-			}
-			else
-			{
-				string hptext = string.Format("{0:N2}", HeartAttribute.HP * 20 / HeartAttribute.MaxHP).Replace(',', '.');
-				if (hptext.Length == 1)
-					hptext = "0" + hptext;
-				hpString = hptext + " / 20.00";
-			}
-			if (Heart?.Shields?.Circle.Consumption > 1)
-			{
-				hpString += $"/ {MathUtil.FloatToString(Heart.Shields.Circle.Consumption * 8 - 8, 2)}";
-			}
+			string hptext = string.Format("{0:N2}", HeartAttribute.HP * 20 / HeartAttribute.MaxHP).Replace(',', '.');
+			if (hptext.Length == 1)
+				hptext = "0" + hptext;
+			hpString = hptext + " / 20.00";
 		}
 		if (!Vertical)
 		{
@@ -150,8 +163,8 @@ internal class HPShower : Entity
 		float scale = 0, AlphaScale = CurrentDrawingSettings.UIColor.A / 255f;
 		if (Buffed)
 			scale = 1 - MathHelper.Clamp(1.25f - PlayerInstance.hpControl.LostSpeed * 0.5f, 0.1f, 1.0f);
-		hpExistCurrent = Color.Lerp(hpExistColor, Color.Firebrick, scale) * AlphaScale;
-		hpLoseCurrent = Color.Lerp(hpLoseColor, Color.Firebrick, scale) * AlphaScale;
-		hpKRCurrent = Color.Lerp(hpKRColor, Color.Firebrick, scale) * AlphaScale;
+		hpExistCurrent = Color.Lerp(HPExistColor, Color.Firebrick, scale) * AlphaScale;
+		hpLoseCurrent = Color.Lerp(HPLoseColor, Color.Firebrick, scale) * AlphaScale;
+		hpKRCurrent = Color.Lerp(HPKRColor, Color.Firebrick, scale) * AlphaScale;
 	}
 }

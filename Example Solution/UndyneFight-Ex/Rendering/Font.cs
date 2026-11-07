@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using System.Text;
 using static UndyneFight_Ex.GameMain;
 using Color = Microsoft.Xna.Framework.Color;
 
@@ -14,8 +15,12 @@ public class GLFont
 	/// The sprite font data
 	/// </summary>
 	public SpriteFont SFX;
-	private readonly Dictionary<char, Vector2> _storedGlyphSizes = [];
-	private readonly Dictionary<char, int> _charIndex = [];
+	private readonly Dictionary<char, CharData> _charData = [];
+	private struct CharData(int index, Vector2 size)
+	{
+		public int Index = index;
+		public Vector2 Size = size;
+	}
 	/// <summary>
 	/// Creates a new GLFont
 	/// </summary>
@@ -23,9 +28,13 @@ public class GLFont
 	/// <param name="cm">Loader to load the font</param>
 	public GLFont(string path, ContentManager cm)
 	{
-		SFX = DrawingLab.LoadContent<SpriteFont>(path, cm);
-		for (int i = 0; i < SFX.Glyphs.Length; i++)
-			_charIndex[SFX.Glyphs[i].Character] = i;
+		SFX = GlobalData.LoadContent<SpriteFont>(path, cm);
+		SpriteFont.Glyph[] glyphs = SFX.Glyphs;
+		for (int i = 0; i < glyphs.Length; i++)
+		{
+			SpriteFont.Glyph curGlpyh = glyphs[i];
+			_charData.Add(curGlpyh.Character, new CharData(i, curGlpyh.Cropping.Size.ToVector2()));
+		}
 	}
 	/// <summary>
 	/// Draws text
@@ -293,28 +302,83 @@ public class GLFont
 			location.Y += lineDistance;
 		}
 	}
+	private readonly Dictionary<string, Dictionary<Vector2, float>> wrapMaxScale = [];
+	public void DrawContainedText(string text, Rectangle box, Color color, float idealScale, float depth)
+	{
+		if (string.IsNullOrEmpty(text))
+			return;
+		float scale = float.Min(idealScale, CalculateMaxScale(text, box));
+		string wrappedText = WrapText(text, box.Width / scale);
+		Vector2 position = new(box.X, box.Y);
+		MissionSpriteBatch.DrawString(this, wrappedText, position, color * Surface.Normal.drawingAlpha, 0f, Vector2.Zero, scale, SpriteEffects.None, depth);
+	}
+	public void DrawContainedTextCentered(string text, Rectangle box, Color color, float idealScale, float depth)
+	{
+		if (string.IsNullOrEmpty(text))
+			return;
+		float scale = float.Min(idealScale, CalculateMaxScale(text, box));
+		string wrappedText = WrapText(text, box.Width / scale);
+		Vector2 textSize = SFX.MeasureString(wrappedText) * scale;
+		Vector2 position = new(box.X + (box.Width - textSize.X) / 2, box.Y + (box.Height - textSize.Y) / 2);
+		MissionSpriteBatch.DrawString(this, wrappedText, position, color * Surface.Normal.drawingAlpha, 0f, Vector2.Zero, scale, SpriteEffects.None, depth);
+	}
+	private float CalculateMaxScale(string text, Rectangle bounds)
+	{
+		if (wrapMaxScale.TryGetValue(text, out Dictionary<vec2, float> data) && data.TryGetValue(bounds.Size.ToVector2(), out float scale))
+			return scale;
+		float currentScale = 1, minScale = 0.1f, maxScale = 10;
+		//Precision check
+		for (int i = 0; i < 20; i++)
+		{
+			float testScale = (minScale + maxScale) / 2;
+			string wrapped = WrapText(text, bounds.Width / testScale);
+			Vector2 size = SFX.MeasureString(wrapped) * testScale;
+
+			if (size.X <= bounds.Width && size.Y <= bounds.Height)
+			{
+				minScale = testScale;
+				currentScale = testScale;
+			}
+			else
+				maxScale = testScale;
+		}
+		_ = wrapMaxScale.TryAdd(text, []);
+		_ = wrapMaxScale[text].TryAdd(bounds.Size.ToVector2(), currentScale);
+		return currentScale;
+	}
+
+	private string WrapText(string text, float maxLineWidth)
+	{
+		string[] words = text.Split(' ');
+		StringBuilder sb = new();
+		float currentLineWidth = 0;
+		Vector2 spaceSize = SFX.MeasureString(" ");
+		foreach (string word in words)
+		{
+			Vector2 wordSize = SFX.MeasureString(word);
+			if (currentLineWidth + wordSize.X > maxLineWidth && currentLineWidth > 0)
+			{
+				_ = sb.Append('\n');
+				currentLineWidth = 0;
+			}
+			_ = sb.Append(word + " ");
+			currentLineWidth += wordSize.X + spaceSize.X;
+		}
+		return sb.ToString().TrimEnd();
+	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal unsafe int GetGlyphIndexOrDefault(char c) => _charIndex[c];
+	internal unsafe int GetGlyphIndex(char c) => _charData.TryGetValue(c, out CharData data) ? data.Index : -1;
 	/// <summary>
 	/// Check whether a character exists in the font
 	/// </summary>
 	/// <param name="c">The character to check</param>
 	/// <returns>Whether the character exists</returns>
-	public bool CharExists(char c) => _charIndex.ContainsKey(c);
+	public bool CharExists(char c) => _charData.ContainsKey(c);
 	/// <summary>
 	/// Gets the size of a specified <see cref="char"/>
 	/// </summary>
 	/// <param name="ch">The character to measure the size of</param>
 	/// <returns>The size of the given character</returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public Vector2 MeasureChar(char ch)
-	{
-		if (_storedGlyphSizes.TryGetValue(ch, out Vector2 size))
-			return size;
-		else
-		{
-			_storedGlyphSizes.Add(ch, size = SFX.Glyphs[GetGlyphIndexOrDefault(ch)].Cropping.Size.ToVector2());
-			return size;
-		}
-	}
+	public Vector2 MeasureChar(char ch) => _charData.TryGetValue(ch, out CharData data) ? data.Size : Vector2.Zero;
 }

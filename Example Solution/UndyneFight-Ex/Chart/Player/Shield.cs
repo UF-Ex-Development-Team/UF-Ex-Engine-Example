@@ -45,7 +45,7 @@ public partial class Player
 					Depth = shield.Depth;
 					Direction = shield.way;
 				}
-				public override void Draw() => FormalDraw(Image, Centre, new Color(drawingColor, 0.6f) * alpha * User.Alpha, MathHelper.ToRadians(Rotation + (User.FixArrow ? 0 : User.Rotation)), ImageCentre);
+				public override void Draw() => GeneralDraw(Image, Centre, new Color(drawingColor, 0.6f) * alpha * User.Alpha, Vector2.One, MathHelper.ToRadians(Rotation + (User.FixArrow ? 0 : User.Rotation)));
 
 				public int Direction { get; init; }
 				private Color drawingColor;
@@ -68,7 +68,7 @@ public partial class Player
 					if (delta <= 35f)
 					{
 						float deltaLerp = (delta + 37) / 77f;
-						scale *= 0.8f * deltaLerp * MathF.Sqrt(deltaLerp) + 0.2f * 1;
+						scale *= 0.8f * deltaLerp * Sqrt(deltaLerp) + 0.2f * 1;
 						scale = Math.Min(1, scale * (1 + 15f / (delta * delta + 12)));
 					}
 					Rotation = MathUtil.Posmod(Rotation + delta * scale * (rotateWay ? 1 : -1), 360);
@@ -78,7 +78,7 @@ public partial class Player
 			private Color drawingColor;
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			private protected void Hold(int pos)
+			protected internal void Hold(int pos)
 			{
 				if (pos != -1)
 					PushDelta *= 0.8f;
@@ -141,7 +141,7 @@ public partial class Player
 			/// <br>The colors for each green soul shield</br>
 			/// <br>0-> Blue, 1 -> Red etc</br>
 			/// </summary>
-			public static Color[] ColorTypes { get; set; } = [new(0, 128, 255, 128), new(255, 0, 0, 128), Color.LimeGreen, Color.MediumPurple];
+			public static Color[] ColorTypes { get; set; } = [new(0, 128, 255, 128), new(255, 0, 0, 128), new(Color.LimeGreen, 0.5f), new(Color.MediumPurple, 0.5f)];
 			internal float deltaRotation = 0;
 			internal float previousRotation;
 			internal float PushDelta { get; private set; } = 0;
@@ -155,7 +155,7 @@ public partial class Player
 			{
 				UpdateIn120 = true;
 				this.user = user;
-				Depth = 0.43f - type * 0.0001f;
+				Depth = DefaultValues.DEFAULT_SHIELD_DEPTH - type * 0.0001f;
 				Image = FightResources.Sprites.shield;
 				Rotation = 0;
 				ColorType = type;
@@ -185,7 +185,7 @@ public partial class Player
 						DrawingLab.DrawLine(position + delta, position - delta, 3f, drawingColor * 0.4f, 0.4f);
 					}
 #endif
-				FormalDraw(Image, Centre + MathUtil.GetVector2(PushDelta, Rotation + 180 + (user.FixArrow ? 0 : user.Rotation)), drawingColor * user.Alpha, MathHelper.ToRadians(Rotation + user.Rotation), ImageCentre);
+				GeneralDraw(Image, Centre + MathUtil.GetVector2(PushDelta, Rotation + 180 + (user.FixArrow ? 0 : user.Rotation)), drawingColor * user.Alpha, Vector2.One, MathHelper.ToRadians(Rotation + user.Rotation));
 			}
 
 			/// <inheritdoc/>
@@ -246,16 +246,16 @@ public partial class Player
 			}
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			internal void CreateShinyEffect(int type, int direction)
+			internal void CreateShinyEffect(DefaultValues.ScoreType type, int direction)
 			{
-				if (type is < 1 or > 4)
+				if (type == DefaultValues.ScoreType.Miss)
 					return;
 
 				Color cl = type switch
 				{
-					1 => Color.Green,
-					2 => Color.LightBlue,
-					3 => Color.Gold,
+					DefaultValues.ScoreType.Okay => Color.Green,
+					DefaultValues.ScoreType.Nice => Color.LightBlue,
+					DefaultValues.ScoreType.Perfect => Color.Gold,
 					_ => Color.Orange,
 				} * (ScreenDrawing.UIColor.A / 255f);
 
@@ -277,17 +277,17 @@ public partial class Player
 			}
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			private void MakeParticle(int type)
+			private void MakeParticle(DefaultValues.ScoreType type)
 			{
-				if (type == 0)
+				if (type == DefaultValues.ScoreType.Miss)
 					return;
 				Vector2 createCentre = Centre + MathUtil.GetVector2(33, missionRotation + Functions.Heart.Rotation);
 				int times = type switch
 				{
-					1 => 12,
-					2 => 8,
-					4 => 5,
-					_ => 3 //3 or 5
+					DefaultValues.ScoreType.Okay => 12,
+					DefaultValues.ScoreType.Nice => 8,
+					DefaultValues.ScoreType.Perfect => 5,
+					_ => 3
 				};
 				for (int i = 0; i < times; i++)
 				{
@@ -296,10 +296,10 @@ public partial class Player
 					rotation1 += rdelta * 90;
 					GameStates.InstanceCreate(new Particle(type switch
 					{
-						1 => Color.Lime,        //Okay
-						2 => Color.LightBlue,   //Nice
-						3 => Color.Gold,        //Perfect
-						_ => Color.Orange       //PerfectE/L
+						DefaultValues.ScoreType.Okay => Color.Lime,
+						DefaultValues.ScoreType.Nice => Color.LightBlue,
+						DefaultValues.ScoreType.Perfect => Color.Gold,
+						_ => Color.Orange
 					} * Rand(0.67f, 0.85f) * (ScreenDrawing.UIColor.A / 255f), MathUtil.GetVector2(Rand(4f, 8f), rotation1), Rand(6, 10), createCentre, FightResources.Sprites.square)
 					{ DarkingSpeed = Rand(10f, 14.6f), SlowLerp = 0.25f });
 				}
@@ -326,7 +326,7 @@ public partial class Player
 				}
 
 				/// <inheritdoc/>
-				public override void Draw() => FormalDraw(Image = FightResources.Sprites.shinyShield, Centre, cl * MathF.Min(1, Pow(2.1f - drawingScale, 2.1f)), Vector2.Lerp(Vector2.One, missionSize, drawingScale - 1), MathUtil.GetRadian(Rotation + (att as IShieldImage).User.Rotation), ImageCentre);
+				public override void Draw() => GeneralDraw(Image = FightResources.Sprites.shinyShield, Centre, cl * MathF.Min(1, Pow(2.1f - drawingScale, 2.1f)), Vector2.Lerp(Vector2.One, missionSize, drawingScale - 1), MathUtil.GetRadian(Rotation + (att as IShieldImage).User.Rotation), ImageCentre);
 			}
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			internal void CheckKey()
@@ -358,7 +358,7 @@ public partial class Player
 			/// <summary>
 			/// 两个盾牌。0蓝1红
 			/// </summary>
-			private readonly Dictionary<int, Shield> shields = [];
+			internal readonly Dictionary<int, Shield> shields = [];
 
 			private readonly int[] oldDirections = [0, 0, 0, 0];
 			/// <summary>
@@ -416,8 +416,8 @@ public partial class Player
 			{
 				Heart mission = FatherObject as Heart;
 				Circle.controlLayer = controlLayer;
-				foreach (KeyValuePair<int, Shield> v in shields)
-					v.Value.controlLayer = controlLayer;
+				foreach ((int _, Shield shield) in shields)
+					shield.controlLayer = controlLayer;
 				if (mission.enabledRedShield && mission.SoulType != 1)
 				{
 					shields[0].enabled = false;
@@ -446,7 +446,7 @@ public partial class Player
 			internal float PushDelta(int color) => shields[color].PushDelta;
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			internal void ShieldShine(int direction, int color, int score)
+			internal void ShieldShine(int direction, int color, DefaultValues.ScoreType score)
 			{
 				if (score != 0)
 					shields[color].CreateShinyEffect(score, direction);
@@ -555,10 +555,13 @@ public partial class Player
 			{
 				if (!enabled)
 					return;
-				FormalDraw(Image, Centre, curColor * 0.6f * ((FatherObject.FatherObject as Heart).Alpha * ScreenDrawing.UIColor.A / 255f), Rotation, ImageCentre);
+				GeneralDraw(Image, Centre, curColor * 0.6f * ((FatherObject.FatherObject as Heart).Alpha * ScreenDrawing.UIColor.A / 255f), Vector2.One, Rotation);
 				float scale = MathF.Min(1, drawConsumption);
 				if (drawConsumption > 0.004f)
-					FormalDraw(Image, Centre + new Vector2(0, Image.Height * (1 - scale)), new CollideRect(0, Image.Height * (1 - scale), Image.Width, Image.Height * scale).ToRectangle(), Color.Red * 0.8f * (ScreenDrawing.UIColor.A / 255f), Vector2.One, Rotation, ImageCentre);
+				{
+					CollideRect texArea = new(0, Image.Height * (1 - scale), Image.Width, Image.Height * scale);
+					GeneralDraw(Image, Centre + new Vector2(0, Image.Height * (1 - scale)), Color.Red * 0.8f * (ScreenDrawing.UIColor.A / 255f), Vector2.One, Rotation, ImageCentre, texArea, texArea);
+				}
 			}
 			private bool enabled = true;
 			private Color curColor = Color.Gold;
@@ -574,15 +577,15 @@ public partial class Player
 
 			private int type = 4;
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			internal void CheckScore(int score)
+			internal void CheckScore(DefaultValues.ScoreType score)
 			{
-				if (score != 3)
+				if (score != DefaultValues.ScoreType.Perfect)
 					type = score switch
 					{
-						>= 4 => Min(type, 3),
-						2 => Min(type, 2),
-						1 => Min(type, 1),
-						_ => Min(type, 0),
+						DefaultValues.ScoreType.Nice => Min(type, 2),
+						DefaultValues.ScoreType.Okay => Min(type, 1),
+						DefaultValues.ScoreType.Miss => Min(type, 0),
+						_ => Min(type, 3),
 					};
 			}
 		}

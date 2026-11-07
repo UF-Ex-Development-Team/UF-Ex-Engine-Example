@@ -2,7 +2,7 @@
 
 internal partial class GameMain : Game
 {
-	internal static List<Type> fights = [];
+	internal static List<Type> FightList = [];
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public async void LoadObject()
 	{
@@ -11,7 +11,7 @@ internal partial class GameMain : Game
 
 		Task task = new(()=>
 		{
-			FightSystem.Initialize(fights);
+			FightSystem.Initialize(FightList);
 			Settings.SettingsManager.Initialize();
 			Surface.Initialize();
 		});

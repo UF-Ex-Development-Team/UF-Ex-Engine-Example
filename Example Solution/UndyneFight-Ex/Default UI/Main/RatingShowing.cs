@@ -22,7 +22,7 @@ internal class RatingShowing : Entity
 	/// Player Name
 	/// </summary>
 	private string name = string.Empty;
-	private static bool enabled => PlayerManager.CurrentUser != null;
+	private static bool Enabled => PlayerManager.CurrentUser != null;
 	/// <summary>
 	/// Special Color for user (Rating)
 	/// </summary>
@@ -35,7 +35,7 @@ internal class RatingShowing : Entity
 	public override void Draw()
 	{
 		GLFont NormalFont = Localization.GetFont("NormalFont");
-		if (!enabled)
+		if (!Enabled)
 			return;
 		Depth = 0.99f;
 		float BoxMiddle = collidingBox.Height / 2;
@@ -54,18 +54,18 @@ internal class RatingShowing : Entity
 		Depth = 0.98f;
 		if (skill < 60)
 			return;
-		FormalDraw(skill > 90 ? starMedal : Image, new Vector2(-12, 30) + collidingBox.TopRight, Color.White * MedalAlpha, 0, centre);
+		GeneralDraw(skill > 90 ? starMedal : Image, new Vector2(-12, 30) + collidingBox.TopRight, Color.White * MedalAlpha);
 		if (skill < 70)
 			return;
-		FormalDraw(skill > 92.5f ? starMedal : Image, new Vector2(-37, 30) + collidingBox.TopRight, Color.White * MedalAlpha, 0, centre);
+		GeneralDraw(skill > 92.5f ? starMedal : Image, new Vector2(-37, 30) + collidingBox.TopRight, Color.White * MedalAlpha);
 		if (skill >= 80)
-			FormalDraw(skill > 95f ? starMedal : Image, new Vector2(-62, 30) + collidingBox.TopRight, Color.White * MedalAlpha, 0, centre);
+			GeneralDraw(skill > 95f ? starMedal : Image, new Vector2(-62, 30) + collidingBox.TopRight, Color.White * MedalAlpha);
 	}
 
 	private readonly Color[] SkillColors = [Color.Lime, Color.LawnGreen, Color.Blue, Color.MediumPurple, Color.Red, Color.OrangeRed, Color.Orange, Color.Gold];
 	public override void Update()
 	{
-		if (!enabled)
+		if (!Enabled)
 			return;
 		name = PlayerManager.CurrentUser.PlayerName;
 		skill = PlayerManager.PlayerSkill;

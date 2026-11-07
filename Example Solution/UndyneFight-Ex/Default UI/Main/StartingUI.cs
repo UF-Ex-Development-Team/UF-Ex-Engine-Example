@@ -145,12 +145,12 @@ internal class IntroUI : Selector
 				if (showingScale <= 0.01f)
 					return;
 				CollideRect area = new(0, 0, Image.Width, Image.Height * showingScale);
-				FormalDraw(Image, Centre, area.ToRectangle(), Color.White, Vector2.One, 0, ImageCentre);
+				GeneralDraw(Image, Centre, Color.White, Vector2.One, 0, ImageCentre, area, area);
 				area.SetCentre(Centre - new Vector2(0, Image.Height * (1 - showingScale) * 0.5f));
 				Depth -= 0.005f;
 				Color c = back * 0.2f;
 				c.A = 135;
-				FormalDraw(FightResources.Sprites.pixUnit, area.ToRectangle(), c);
+				GeneralDraw(FightResources.Sprites.pixUnit, area.Centre, c, area.Size);
 				Depth += 0.005f;
 
 				if (enabled)

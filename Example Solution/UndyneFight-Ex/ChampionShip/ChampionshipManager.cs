@@ -12,17 +12,16 @@ public class ChampionshipManager : ISaveLoad
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void Load(SaveInfo info)
 	{
-		foreach (KeyValuePair<string, SaveInfo> v in info.Nexts)
-			championshipData.Add(v.Key, v.Value.StringValue);
+		foreach ((string name, SaveInfo state) in info.Nexts)
+			championshipData.Add(name, state.StringValue);
 	}
-
 	/// <inheritdoc/>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public SaveInfo Save()
 	{
 		SaveInfo info = new("ChampionShips{");
-		foreach (KeyValuePair<string, string> v in championshipData)
-			info.PushNext(new(v.Key + ":" + v.Value));
+		foreach ((string name, string state) in championshipData)
+			info.PushNext(new(name + ":" + state));
 		return info;
 	}
 	/// <summary>

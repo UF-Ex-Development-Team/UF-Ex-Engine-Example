@@ -217,9 +217,9 @@ public partial class Line : Entity
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void AlphaDecrease(float time, float? val = null, bool willDispose = true)
 	{
-		float total = val ??= Alpha, once = total / time;
+		float total = val ?? Alpha, once = total / time;
 		DelayEventProcessor.AddTimeRangedEvent(0, () => Alpha -= once, time, false);
-		if (val == Alpha && willDispose)
+		if (total - once * time <= once && willDispose)
 			DelayEventProcessor.AddInstantEvent(time, Dispose);
 	}
 	/// <summary>
@@ -229,11 +229,7 @@ public partial class Line : Entity
 	/// <param name="time">The time taken for the line to fade</param>
 	/// <param name="val">The amount to fade out (Default entirely)</param>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public void DelayAlphaDecrease(float delay, float time, float? val = null) => DelayEventProcessor.AddInstantEvent(delay, () =>
-		{
-			float total = val ?? Alpha, once = total / time;
-			DelayEventProcessor.AddTimeRangedEvent(0, () => Alpha -= once, time + 5, false);
-		});
+	public void DelayAlphaDecrease(float delay, float time, float? val = null) => DelayEventProcessor.AddInstantEvent(delay, () => AlphaDecrease(time, val));
 	/// <summary>
 	/// Fades in the line by the given duration by the given value
 	/// </summary>
@@ -252,11 +248,7 @@ public partial class Line : Entity
 	/// <param name="time">The time taken for the line to fade</param>
 	/// <param name="val">The amount to fade in (Default 1)</param>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public void DelayAlphaIncrease(float delay, float time, float val = 1) => DelayEventProcessor.AddInstantEvent(delay, () =>
-		{
-			float total = val, once = total / time;
-			DelayEventProcessor.AddTimeRangedEvent(0, () => Alpha += once, time, false);
-		});
+	public void DelayAlphaIncrease(float delay, float time, float val = 1) => DelayEventProcessor.AddInstantEvent(delay, () => AlphaIncrease(time, val));
 	/// <summary>
 	/// Decreases the alpha (time / 4) of the line and then increases it (time * 3 / 4)
 	/// </summary>

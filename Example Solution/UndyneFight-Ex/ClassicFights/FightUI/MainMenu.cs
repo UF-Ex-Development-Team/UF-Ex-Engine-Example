@@ -19,7 +19,7 @@ public class MenuButtons
 		private bool isCollide = false;
 		public override Vector2 HeartStayPosition => Centre - new Vector2(38, 0);
 
-		public override void Draw() => FormalDraw(fight[isCollide ? 1 : 0], collidingBox.ToRectangle(), Color.White * ClassicFight.InterActive.UIAlpha);
+		public override void Draw() => GeneralDraw(fight[isCollide ? 1 : 0], collidingBox.Centre, Color.White * ClassicFight.InterActive.UIAlpha, collidingBox.Size);
 		public override void Update()
 		{
 			isCollide = GetCollide();
@@ -44,7 +44,7 @@ public class MenuButtons
 		private bool isCollide = false;
 		public override Vector2 HeartStayPosition => Centre - new Vector2(38, 0);
 
-		public override void Draw() => FormalDraw(act[isCollide ? 1 : 0], collidingBox.ToRectangle(), Color.White * ClassicFight.InterActive.UIAlpha);
+		public override void Draw() => GeneralDraw(act[isCollide ? 1 : 0], collidingBox.Centre, Color.White * ClassicFight.InterActive.UIAlpha, collidingBox.Size / 2);
 		public override void Update()
 		{
 			isCollide = GetCollide();
@@ -70,7 +70,7 @@ public class MenuButtons
 		private bool isCollide = false;
 		public override Vector2 HeartStayPosition => Centre - new Vector2(38, 0);
 
-		public override void Draw() => FormalDraw(item[isCollide ? 1 : 0], collidingBox.ToRectangle(), Color.White * ClassicFight.InterActive.UIAlpha);
+		public override void Draw() => GeneralDraw(item[isCollide ? 1 : 0], collidingBox.Centre, Color.White * ClassicFight.InterActive.UIAlpha, collidingBox.Size / 2);
 		public override void Update()
 		{
 			isCollide = GetCollide();
@@ -95,7 +95,7 @@ public class MenuButtons
 		private bool isCollide = false;
 		public override Vector2 HeartStayPosition => Centre - new Vector2(38, 0);
 
-		public override void Draw() => FormalDraw(mercy[isCollide ? 1 : 0], collidingBox.ToRectangle(), Color.White * ClassicFight.InterActive.UIAlpha);
+		public override void Draw() => GeneralDraw(mercy[isCollide ? 1 : 0], collidingBox.Centre, Color.White * ClassicFight.InterActive.UIAlpha, collidingBox.Size / 2);
 		public override void Update()
 		{
 			isCollide = GetCollide();

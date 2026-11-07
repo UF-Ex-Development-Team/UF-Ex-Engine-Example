@@ -113,8 +113,6 @@ public static class ClassicFight
 
 	public static class InterActive
 	{
-		private static string mainMessage;
-
 		internal static void Reset()
 		{
 			UIAlpha = 1.0f;
@@ -133,6 +131,31 @@ public static class ClassicFight
 		/// 主信息的效果增加
 		/// </summary>
 		public static TextAttribute[] MainMessageAttributes { get; set; }
+#if NET10_0_OR_GREATER
+		/// <summary>
+		/// 当玩家在菜单栏选择的时候框内的信息。请最好先填写MainMessageAttributes项，否则有一定可能会出现错误。
+		/// </summary>
+		public static string MainMessage
+		{
+			internal get;
+			set
+			{
+				field = value;
+				if (decisionTree == null || decisionTree.Peek() == MainMenu)
+				{
+					if (roundType == false)
+						return;
+					boxMessage?.Dispose();
+					if (decisionTree.Peek() != MainMenu)
+						return;
+					if (!finishSelecting)
+						return;
+					ResetMessage();
+				}
+			}
+		}
+#else
+		private static string mainMessage;
 		/// <summary>
 		/// 当玩家在菜单栏选择的时候框内的信息。请最好先填写MainMessageAttributes项，否则有一定可能会出现错误。
 		/// </summary>
@@ -155,6 +178,7 @@ public static class ClassicFight
 				}
 			}
 		}
+#endif
 		/// <summary>
 		/// 攻击动效。传递一个类型反射
 		/// </summary>

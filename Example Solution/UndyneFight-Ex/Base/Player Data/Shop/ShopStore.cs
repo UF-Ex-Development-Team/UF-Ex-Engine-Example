@@ -226,7 +226,7 @@ public class ShopItemData : ISaveLoad
 				continue;
 			_ = UserItems.TryAdd(item.FullName, item);
 			UserItems[item.FullName].InShop = true;
-			UserItems[item.FullName].Count = item.Count = (int)MathUtil.FloatFromString(itemInfo["count"]);
+			UserItems[item.FullName].Count = item.Count = (int)(itemInfo["count"]).ToFloat();
 			UserItems[item.FullName].Activated = item.Activated = itemInfo["activated"] is "true" or "True";
 			try
 			{
